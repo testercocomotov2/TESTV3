@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const errorSection = document.getElementById("error-section");
     const errorMsg = document.getElementById("error-message");
 
-    const BACKEND_URL = "https://your-heroku-backend.herokuapp.com/download"; // Change to your Heroku backend URL!
+    const BACKEND_URL = "http://43.204.30.120/download";
 
     function showStatus(message, loading = false) {
         statusMsg.textContent = message;
