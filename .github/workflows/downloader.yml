@@ -44,13 +44,14 @@ jobs:
       - name: Download Media
         run: |
           mkdir output
-          # Removed invalid delay option, using extractor-args for better bot-bypass
-          FLAGS="--cookies final_cookies.txt --extractor-args 'youtube:player_skip_subscribe'"
+          # Fixed: Correct formatting for extractor-args (no double quotes inside)
+          FLAGS="--cookies final_cookies.txt --extractor-args youtube:player_skip_subscribe --no-check-certificates"
           
           if [ "${{ inputs.format }}" == "audio" ]; then
             yt-dlp $FLAGS -x --audio-format ${{ inputs.audio_ext }} -o "output/dl_engine.%(ext)s" "${{ inputs.youtube_url }}"
           else
-            yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/dl_engine.mp4" "${{ inputs.youtube_url }}"
+            # Limit quality based on input and ensure mp4 container
+            yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "output/dl_engine.mp4" "${{ inputs.youtube_url }}"
           fi
 
       - name: Private TmpFiles Upload
@@ -58,6 +59,7 @@ jobs:
           FILE_PATH=$(find output -type f | head -n 1)
           FILENAME=$(basename "$FILE_PATH")
           
+          # Upload to tmpfiles.org API
           RESPONSE=$(curl -s -F "file=@$FILE_PATH" https://tmpfiles.org/api/v1/upload)
           
           python3 -c "
@@ -65,6 +67,7 @@ jobs:
           try:
               data = json.loads(sys.stdin.read())
               url = data['data']['url']
+              # Construct direct download URL: /dl/ID/filename
               dl_url = url.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/') + '/$FILENAME'
               print(f'\n\nSUCCESS_LINK: {dl_url}\n\n')
           except:
