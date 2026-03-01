@@ -3,47 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SGYT Downloader | V37</title>
+    <title>SGYT Engine | V39</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
 
     <div class="downloader-container">
-        <h1>YouTube Downloader</h1>
-        <p class="subtitle">Convert & Download Videos in MP4/MP3 Formats Instantly</p>
+        <h1 class="brand-title">SGYT <span>Engine</span></h1>
+        <p class="subtitle">Convert & Download Videos in MP4/MP3 Instantly</p>
 
         <div class="token-box">
-            <input type="password" id="ghToken" placeholder="GitHub Access Token (PAT)" onchange="saveToken()">
+            <input type="password" id="ghToken" placeholder="🔒 Enter GitHub PAT..." onchange="saveToken()">
         </div>
 
         <div class="input-group">
-            <input type="text" id="ytUrl" placeholder="Paste Your URL..." autocomplete="off">
+            <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+            <input type="text" id="ytUrl" placeholder="Paste Your YouTube URL..." autocomplete="off">
         </div>
 
         <div class="action-bar">
-            <select id="mode">
+            <select id="mode" class="custom-select">
                 <option value="video">MP4</option>
                 <option value="audio">MP3</option>
             </select>
-
-            <select id="quality">
-                <option value="2160">4K (2160p)</option>
-                <option value="1440">2K (1440p)</option>
+            
+            <select id="quality" class="custom-select">
+                <option value="2160">4K</option>
+                <option value="1440">2K</option>
                 <option value="1080" selected>1080p</option>
                 <option value="720">720p</option>
-                <option value="480">480p</option>
             </select>
 
-            <button id="startBtn" onclick="triggerAction()">Download</button>
+            <button id="startBtn" onclick="triggerAction()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                <span>Download</span>
+            </button>
         </div>
 
         <div id="downloadArea" class="download-ready">
-            <a id="artifactLink" target="_blank">🚀 DOWNLOAD READY: CLICK TO SAVE</a>
+            <p>🎉 File is ready to save!</p>
+            <a id="artifactLink" target="_blank">Download File</a>
         </div>
 
-        <div id="terminal">
-            <p>> SGYT Engine: System Standby...</p>
+        <div id="terminal" class="mini-terminal">
+            <p><span class="prompt">~</span> SGYT Engine: Ready, SlayerGamerYT.</p>
         </div>
     </div>
 
