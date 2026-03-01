@@ -1,27 +1,23 @@
 /**
- * SGYT Engine V4 - Public Access Edition
+ * SGYT Engine V4 - ID-Based Public Access
  * User: SlayerGamerYT
- * Domain: sgyt.is-best.net
+ * Repo: testercocomotov2/TESTV3
  */
 
-// Configuration - Ensure these match your GitHub Repo exactly!
 const REPO_OWNER = "testercocomotov2";
 const REPO_NAME = "TESTV3";
-const WORKFLOW_FILE = "downloader.yml"; // The physical filename in .github/workflows/
-const BRANCH = "main"; // Change to "master" if your repo uses that instead
+const WORKFLOW_FILE = "downloader.yml";
+const BRANCH = "main"; // Change to "master" if your repo uses it
 
-// Startup: Load saved token from browser storage
 window.onload = () => {
     const saved = localStorage.getItem('gh_pat');
     if (saved) document.getElementById('ghToken').value = saved;
 };
 
-// Save token for future use
 function saveToken() {
     localStorage.setItem('gh_pat', document.getElementById('ghToken').value.trim());
 }
 
-// Terminal Logging System
 function log(msg, type = '') {
     const term = document.getElementById('terminal');
     const p = document.createElement('p');
@@ -31,9 +27,6 @@ function log(msg, type = '') {
     term.scrollTop = term.scrollHeight;
 }
 
-/**
- * Trigger the Backend Engine
- */
 async function triggerAction() {
     const token = document.getElementById('ghToken').value.trim();
     const url = document.getElementById('ytUrl').value.trim();
@@ -49,7 +42,7 @@ async function triggerAction() {
 
     btn.disabled = true;
     document.getElementById('downloadArea').style.display = 'none';
-    log("Igniting Engine on GitHub...", "log-info");
+    log("Igniting Engine...", "log-info");
 
     const dispatchUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`;
 
@@ -63,22 +56,16 @@ async function triggerAction() {
             },
             body: JSON.stringify({
                 ref: BRANCH,
-                inputs: { 
-                    youtube_url: url, 
-                    format: mode, 
-                    quality: quality, 
-                    audio_ext: audioExt 
-                }
+                inputs: { youtube_url: url, format: mode, quality: quality, audio_ext: audioExt }
             })
         });
 
         if (response.status === 204) {
-            log("Backend processing started. Do not close this page.", "log-success");
-            // Start polling for the result after a short delay
+            log("Backend started. Monitoring progress...", "log-success");
             setTimeout(() => trackProgress(token), 15000);
         } else {
-            const errData = await response.json();
-            throw new Error(`GitHub Error: ${errData.message || response.status}`);
+            const err = await response.json();
+            throw new Error(err.message || response.status);
         }
     } catch (error) {
         log(error.message, "log-error");
@@ -86,57 +73,41 @@ async function triggerAction() {
     }
 }
 
-/**
- * Monitor Progress and Generate Public Link
- */
 async function trackProgress(token) {
     const runsUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/runs?per_page=1`;
     let attempts = 0;
-    const maxAttempts = 60; // 10 minutes total
 
     const checkInterval = setInterval(async () => {
         attempts++;
         try {
-            const res = await fetch(runsUrl, { 
-                headers: { 'Authorization': `Bearer ${token}` } 
-            });
+            const res = await fetch(runsUrl, { headers: { 'Authorization': `Bearer ${token}` } });
             const data = await res.json();
-            
-            if (data.workflow_runs && data.workflow_runs.length > 0) {
-                const run = data.workflow_runs[0];
+            const run = data.workflow_runs[0];
 
-                if (run.status === 'completed') {
-                    clearInterval(checkInterval);
-                    document.getElementById('startBtn').disabled = false;
+            if (run.status === 'completed') {
+                clearInterval(checkInterval);
+                document.getElementById('startBtn').disabled = false;
+                
+                if (run.conclusion === 'success') {
+                    // ID-Based Public Link Construction
+                    const workflowId = run.workflow_id;
+                    const publicUrl = `https://nightly.link/${REPO_OWNER}/${REPO_NAME}/workflows/${workflowId}/${BRANCH}/Downloaded_Media.zip`;
                     
-                    if (run.conclusion === 'success') {
-                        // FIX: Nightly.link expects the workflow ID or filename without .yml
-                        const workflowName = WORKFLOW_FILE.replace(".yml", "");
-                        
-                        // Construct the Direct Public Link
-                        const publicUrl = `https://nightly.link/${REPO_OWNER}/${REPO_NAME}/workflows/${workflowName}/${BRANCH}/Downloaded_Media.zip`;
-                        
-                        const linkBtn = document.getElementById('artifactLink');
-                        linkBtn.href = publicUrl;
-                        document.getElementById('downloadArea').style.display = 'block';
-                        
-                        log("SUCCESS: Download link is now public!", "log-success");
-                        log("No GitHub login is required for this link.");
-                    } else {
-                        log("Engine Failure: Check your repository logs for errors.", "log-error");
-                    }
+                    document.getElementById('artifactLink').href = publicUrl;
+                    document.getElementById('downloadArea').style.display = 'block';
+                    log("SUCCESS: Public link ready! Wait 30s before clicking if 404 appears.", "log-success");
                 } else {
-                    log(`Processing... Current Status: ${run.status}`);
+                    log("Engine Error. Check GitHub logs.", "log-error");
                 }
+            } else {
+                log(`Status: ${run.status}...`);
             }
-        } catch (e) { 
-            console.error("Polling error:", e); 
-        }
+        } catch (e) { console.error(e); }
 
-        if (attempts >= maxAttempts) {
+        if (attempts >= 60) {
             clearInterval(checkInterval);
-            log("Polling Timeout. Check GitHub Actions manually.", "log-error");
+            log("Timeout reached.", "log-error");
             document.getElementById('startBtn').disabled = false;
         }
-    }, 10000); // Check every 10 seconds
+    }, 10000);
 }
