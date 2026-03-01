@@ -23,7 +23,7 @@ jobs:
       - name: Install Tools
         run: |
           brew install ffmpeg deno
-          # Fix for PEP 668: Break system packages is safe on temporary runners
+          # PEP 668 Fix for macOS
           pip3 install mediafire --break-system-packages
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
@@ -53,7 +53,7 @@ jobs:
             yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
           fi
 
-      - name: Private Upload (MediaFire + Backup)
+      - name: Triple-Cloud Private Upload
         env:
           MF_EMAIL: ${{ secrets.MF_EMAIL }}
           MF_PASSWORD: ${{ secrets.MF_PASSWORD }}
@@ -61,11 +61,28 @@ jobs:
           FILE_PATH=$(find output -type f | head -n 1)
           FILENAME=$(basename "$FILE_PATH")
           
-          # Check if MediaFire credentials exist
+          echo "### 🚀 SlayerGamerYT: Engine Summary" >> $GITHUB_STEP_SUMMARY
+          echo "File: **$FILENAME**" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+
+          # 1. PixelDrain Upload (Very stable)
+          echo "Uploading to PixelDrain..."
+          PD_LINK=$(curl -T "$FILE_PATH" https://pixeldrain.com/api/file/)
+          PD_URL=$(echo $PD_LINK | python3 -c "import sys, json; print('https://pixeldrain.com/u/' + json.load(sys.stdin)['id'])" || echo "Failed")
+          echo "PixelDrain: $PD_URL"
+          echo "* **PixelDrain:** [$PD_URL]($PD_URL)" >> $GITHUB_STEP_SUMMARY
+
+          # 2. File.io Upload (Auto-deletes after download)
+          echo "Uploading to File.io..."
+          FIO_LINK=$(curl -F "file=@$FILE_PATH" https://file.io)
+          FIO_URL=$(echo $FIO_LINK | python3 -c "import sys, json; print(json.load(sys.stdin).get('link', 'Failed'))" || echo "Failed")
+          echo "File.io: $FIO_URL"
+          echo "* **File.io:** [$FIO_URL]($FIO_URL) (One-time use!)" >> $GITHUB_STEP_SUMMARY
+
+          # 3. MediaFire Upload (Requires Secrets)
           if [ -n "$MF_EMAIL" ] && [ -n "$MF_PASSWORD" ]; then
             echo "Uploading to MediaFire..."
-            # Using Python to handle MediaFire API
-            DOWNLOAD_LINK=$(python3 -c "
+            MF_STATUS=$(python3 -c "
           import sys
           from mediafire import MediaFireApi, MediaFireUploader
           try:
@@ -75,25 +92,14 @@ jobs:
               uploader = MediaFireUploader(api)
               with open('$FILE_PATH', 'rb') as fd:
                   uploader.upload(fd, '$FILENAME')
-              print('https://www.mediafire.com/myfiles/')
-          except Exception as e:
-              print(f'ERROR:{e}')
+              print('SUCCESS')
+          except:
+              print('FAILED')
           ")
+            if [ "$MF_STATUS" == "SUCCESS" ]; then
+              echo "* **MediaFire:** [Check MyFiles](https://www.mediafire.com/myfiles/)" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
-
-          # If MediaFire failed or credentials missing, use Litterbox as fallback
-          if [[ "$DOWNLOAD_LINK" == ERROR* ]] || [ -z "$DOWNLOAD_LINK" ]; then
-            echo "MediaFire failed or not configured. Falling back to Litterbox..."
-            DOWNLOAD_LINK=$(curl -F "reqtype=fileupload" -F "time=1h" -F "fileToUpload=@$FILE_PATH" https://litterbox.catbox.moe/resources/internals/api.php)
-          fi
-
-          echo "--------------------------------------------------"
-          echo "PRIVATE DOWNLOAD LINK: $DOWNLOAD_LINK"
-          echo "--------------------------------------------------"
-          
-          echo "### 🚀 SlayerGamerYT: Engine Success!" >> $GITHUB_STEP_SUMMARY
-          echo "File: **$FILENAME**" >> $GITHUB_STEP_SUMMARY
-          echo "[Click here to Download]($DOWNLOAD_LINK)" >> $GITHUB_STEP_SUMMARY
 
       - name: Cleanup
         if: always()
