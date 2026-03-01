@@ -1,5 +1,95 @@
-/* Styling is handled entirely by Tailwind CSS in the HTML/JSX files */
-body {
-    margin: 0;
-    font-family: system-ui, -apple-system, sans-serif;
+:root {
+    --bg-color: #0e1217;
+    --card-bg: #1c1f26;
+    --primary-purple: #7b61ff;
+    --text-main: #ffffff;
+    --text-dim: #a0a0a0;
 }
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+}
+
+.downloader-container {
+    width: 90%;
+    max-width: 500px;
+    text-align: center;
+}
+
+h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+p.subtitle { color: var(--text-dim); margin-bottom: 2rem; font-size: 0.9rem; }
+
+.input-group {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 10px;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+input#ytUrl {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: white;
+    padding: 15px;
+    font-size: 1rem;
+    outline: none;
+}
+
+.action-bar {
+    display: flex;
+    background: var(--primary-purple);
+    border-radius: 12px;
+    overflow: hidden;
+    height: 60px;
+}
+
+select {
+    background: rgba(255,255,255,0.1);
+    color: white;
+    border: none;
+    padding: 0 15px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+button#startBtn {
+    flex-grow: 1;
+    background: transparent;
+    border: none;
+    color: white;
+    font-weight: bold;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+button#startBtn:hover { background: rgba(0,0,0,0.1); }
+button#startBtn:disabled { background: #555; cursor: not-allowed; }
+
+#terminal {
+    margin-top: 20px;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    max-height: 100px;
+    overflow-y: auto;
+}
+
+.download-ready {
+    margin-top: 20px;
+    background: #28a745;
+    padding: 15px;
+    border-radius: 12px;
+    font-weight: bold;
+    display: none;
+}
+
+.download-ready a { color: white; text-decoration: none; display: block; }
