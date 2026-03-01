@@ -51,30 +51,31 @@ jobs:
             yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
           fi
 
-      - name: Private Upload (Catbox)
+      - name: Private Upload (Transfer.sh)
         run: |
           FILE_PATH=$(find output -type f | head -n 1)
-          FILENAME=$(basename "$FILE_PATH")
-          echo "Uploading: $FILENAME"
+          # Clean filename for the URL to avoid shell issues
+          CLEAN_NAME=$(basename "$FILE_PATH" | tr -d '[:space:]')
+          echo "Uploading: $CLEAN_NAME"
           
-          # Catbox.moe is simpler and more stable than GoFile
-          # It handles special characters in filenames automatically
-          DOWNLOAD_LINK=$(curl -F "reqtype=fileupload" -F "fileToUpload=@$FILE_PATH" https://catbox.moe/user/api.php)
+          # Transfer.sh uses a simple PUT request
+          DOWNLOAD_LINK=$(curl --upload-file "$FILE_PATH" "https://transfer.sh/$CLEAN_NAME")
           
           if [[ $DOWNLOAD_LINK == http* ]]; then
             echo "--------------------------------------------------"
             echo "PRIVATE DOWNLOAD LINK: $DOWNLOAD_LINK"
             echo "--------------------------------------------------"
             
-            # Post to GitHub Summary for easy one-tap access on Android
-            echo "### 🚀 SlayerGamerYT: Download Ignited!" >> $GITHUB_STEP_SUMMARY
-            echo "File: **$FILENAME**" >> $GITHUB_STEP_SUMMARY
+            # Post to GitHub Summary
+            echo "### 🚀 SlayerGamerYT: Engine Success!" >> $GITHUB_STEP_SUMMARY
+            echo "Your file is ready for private download." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
             echo "[Click here to Download]($DOWNLOAD_LINK)" >> $GITHUB_STEP_SUMMARY
           else
-            echo "Upload Failed: $DOWNLOAD_LINK"
+            echo "Upload Failed!"
             exit 1
           fi
 
-      - name: Self-Destruct Workspace
+      - name: Cleanup
         if: always()
         run: rm -rf output raw.txt final_cookies.txt
