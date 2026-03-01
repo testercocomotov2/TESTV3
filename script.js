@@ -1,7 +1,7 @@
 /**
- * SGYT Engine V17 - TmpFiles Private Edition
+ * SGYT Engine V17.1 - Deep Search Fix
  * User: SlayerGamerYT
- * Repo: testercocomotov2/TESTV3
+ * Domain: sgyt.is-best.net
  */
 
 const REPO_OWNER = "testercocomotov2";
@@ -22,7 +22,7 @@ function log(msg, type = '') {
     const term = document.getElementById('terminal');
     const p = document.createElement('p');
     if (type) p.className = type;
-    p.textContent = `[${new Date().toLocaleTimeString()}] > ${msg}`;
+    p.innerHTML = `[${new Date().toLocaleTimeString()}] > ${msg}`;
     term.appendChild(p);
     term.scrollTop = term.scrollHeight;
 }
@@ -42,7 +42,7 @@ async function triggerAction() {
 
     btn.disabled = true;
     document.getElementById('downloadArea').style.display = 'none';
-    log("Igniting Engine...", "log-info");
+    log("Engine Ignited! Waiting for GitHub...", "log-info");
 
     const dispatchUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`;
 
@@ -61,8 +61,8 @@ async function triggerAction() {
         });
 
         if (response.status === 204) {
-            log("Backend processing. Uploading to TmpFiles...", "log-success");
-            setTimeout(() => trackProgress(token), 20000);
+            log("Backend processing. Files are being uploaded...", "log-success");
+            setTimeout(() => trackProgress(token), 25000);
         } else {
             const err = await response.json();
             throw new Error(err.message || response.status);
@@ -89,13 +89,13 @@ async function trackProgress(token) {
                 document.getElementById('startBtn').disabled = false;
                 
                 if (run.conclusion === 'success') {
-                    log("Engine Success! Fetching link...", "log-info");
+                    log("Engine Success! Fetching Link...", "log-info");
                     fetchLinksFromLogs(token, run.id);
                 } else {
-                    log("Engine Failed. Check Action logs.", "log-error");
+                    log("Engine Failed. YouTube might have blocked the runner.", "log-error");
                 }
             } else {
-                log(`Processing... (${run ? run.status : 'starting'})`);
+                log(`Processing... (Status: ${run ? run.status : 'starting'})`);
             }
         } catch (e) { console.error(e); }
 
@@ -118,20 +118,20 @@ async function fetchLinksFromLogs(token, runId) {
         const logsRes = await fetch(logsUrl, { headers: { 'Authorization': `Bearer ${token}` } });
         const logText = await logsRes.text();
 
-        // Extract the TmpFiles URL
-        const linkMatch = logText.match(/TMP_LINK: (https:\/\/tmpfiles\.org\/dl\/\S+)/);
+        // DEEP SEARCH: Looks for any URL starting with tmpfiles.org/dl/ inside the logs
+        const urlMatch = logText.match(/https:\/\/tmpfiles\.org\/dl\/[^\s'"]+/);
 
-        if (linkMatch) {
+        if (urlMatch) {
+            const cleanUrl = urlMatch[0];
             log("--- PRIVATE LINK READY ---", "log-success");
-            log(`Link: ${linkMatch[1]}`, "log-success");
-            log("Expires in 60 minutes.", "log-info");
+            log(`<a href="${cleanUrl}" target="_blank" style="color:#00ff00;text-decoration:underline;">Click Here to Download</a>`, "log-success");
             
             const linkBtn = document.getElementById('artifactLink');
-            linkBtn.href = linkMatch[1];
-            linkBtn.textContent = "🚀 Download File";
+            linkBtn.href = cleanUrl;
+            linkBtn.textContent = "🚀 Download Now";
             document.getElementById('downloadArea').style.display = 'block';
         } else {
-            log("Link found but could not be parsed.", "log-error");
+            log("Log found, but the upload link was missing. Check if TmpFiles is down.", "log-error");
         }
     } catch (e) {
         log("Error reading logs: " + e.message, "log-error");
