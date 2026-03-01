@@ -1,7 +1,7 @@
 /**
- * SGYT Engine V7 - Catbox Private Edition
+ * SGYT Engine V8 - Transfer.sh Private Edition
  * User: SlayerGamerYT
- * Repo: testercocomotov2/TESTV3
+ * Domain: sgyt.is-best.net
  */
 
 const REPO_OWNER = "testercocomotov2";
@@ -89,13 +89,17 @@ async function trackProgress(token) {
                 document.getElementById('startBtn').disabled = false;
                 
                 if (run.conclusion === 'success') {
-                    // FETCH THE LINK FROM JOB SUMMARY
-                    fetchLinkFromSummary(token, run.id);
+                    log("SUCCESS: Cloud link generated!", "log-success");
+                    const summaryUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/actions/runs/${run.id}`;
+                    const linkBtn = document.getElementById('artifactLink');
+                    linkBtn.href = summaryUrl;
+                    linkBtn.textContent = "🔗 Get Private Download Link";
+                    document.getElementById('downloadArea').style.display = 'block';
                 } else {
-                    log("Engine Failed. Check your YouTube URL/Cookies.", "log-error");
+                    log("Engine Failed. Please check logs.", "log-error");
                 }
             } else {
-                log(`Processing... (${run ? run.status : 'starting'})`);
+                log(`Processing... Status: ${run ? run.status : 'starting'}`);
             }
         } catch (e) { console.error(e); }
 
@@ -105,24 +109,4 @@ async function trackProgress(token) {
             document.getElementById('startBtn').disabled = false;
         }
     }, 10000);
-}
-
-// Advanced Link Scraper: Pulls the link from GitHub logs into your UI
-async function fetchLinkFromSummary(token, runId) {
-    try {
-        const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/runs/${runId}/jobs`;
-        const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
-        const data = await res.json();
-        
-        // This is a direct link to the summary page for privacy
-        const summaryUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/actions/runs/${runId}`;
-        
-        log("SUCCESS: Media ready for download!", "log-success");
-        const linkBtn = document.getElementById('artifactLink');
-        linkBtn.href = summaryUrl;
-        linkBtn.textContent = "🔗 Get Private Download Link";
-        document.getElementById('downloadArea').style.display = 'block';
-    } catch (e) {
-        log("Error fetching final link summary.", "log-error");
-    }
 }
