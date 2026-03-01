@@ -1,5 +1,5 @@
 /**
- * SGYT Engine V39 - Premium UI + Raw Grabber
+ * SGYT Engine V41 - Full Script & End-Link Grabber
  * User: SlayerGamerYT
  */
 
@@ -8,6 +8,8 @@ const REPO_NAME = "TESTV3";
 const WORKFLOW_FILE = "downloader.yml";
 const BRANCH = "main"; 
 const WEBHOOK_TOKEN = "1a9bc849-a393-458c-86a8-4d78aa4bb7af";
+
+// sorting=newest ensure karega ki last mein aayi hui link sabse upar mile
 const POLL_API = `https://webhook.site/token/${WEBHOOK_TOKEN}/requests?sorting=newest`;
 
 const btn = document.getElementById('startBtn');
@@ -24,7 +26,7 @@ function saveToken() {
 
 function log(msg, isError = false) {
     const p = document.createElement('p');
-    if (isError) p.style.color = "#ef4444"; // Red for errors
+    if (isError) p.style.color = "#ef4444"; 
     p.innerHTML = `<span class="prompt">~</span> ${msg}`;
     terminal.prepend(p);
     if (terminal.children.length > 6) terminal.lastChild.remove();
@@ -38,11 +40,10 @@ async function triggerAction() {
 
     if (!token || !url) { log("Token ya URL missing hai bhai!", true); return; }
 
-    // UI Loading State
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> <span>Processing...</span>';
     document.getElementById('downloadArea').style.display = 'none';
-    log("Engine Ignited. Pinging GitHub...");
+    log("Engine Ignited. GitHub backend started...");
 
     try {
         const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
@@ -60,8 +61,9 @@ async function triggerAction() {
         });
 
         if (response.status === 204) {
-            log("Backend Active. Hunting raw signal...");
-            grabSignal(); 
+            log("Backend Active. Upload finish hone ka wait kar rahe hain...");
+            // Attempts = 0 se start karo
+            grabSignal(0); 
         } else {
             throw new Error("GitHub ne request reject kar di.");
         }
@@ -71,28 +73,38 @@ async function triggerAction() {
     }
 }
 
-async function grabSignal() {
+// Ye function backend ke final upload link ko direct grab karega
+async function grabSignal(attempts) {
+    if (attempts > 60) { // 2 minute ka timeout (agar badi video ho toh badha sakte ho)
+        log("Timeout: Upload hone mein zyada time lag gaya ya process fail hua.", true);
+        resetButton();
+        return;
+    }
+
     try {
         const response = await fetch(POLL_API);
-        const rawData = await response.text(); 
+        // Pure text format mein data utha rahe hain (No JSON crash)
+        const rawText = await response.text(); 
 
-        // Raw Text Extract (No JSON freeze issues)
-        const linkMatch = rawData.match(/https:\/\/filebin\.net\/[a-z0-9]+\/[a-z0-9_.]+/gi);
+        // Regex: Ye directly us last link ko nikalega jo Webhook par POST hui hai
+        const match = rawText.match(/https:(?:\\\/|\/)filebin\.net(?:\\\/|\/)[a-zA-Z0-9]+(?:\\\/|\/)[^"'\s\\]+/i);
 
-        if (linkMatch && linkMatch.length > 0) {
-            const finalLink = linkMatch[0].replace(/\\/g, ''); 
-            showFinalLink(finalLink);
+        if (match) {
+            // Slashes clean karo aur final link set karo
+            const cleanLink = match[0].replace(/\\/g, '');
+            showFinalLink(cleanLink);
         } else {
-            setTimeout(grabSignal, 2000); // Check again in 2s
+            // Agar upload abhi tak complete nahi hua, toh 2 second baad fir search karo
+            setTimeout(() => grabSignal(attempts + 1), 2000);
         }
     } catch (e) {
-        console.warn("Retrying fetch...");
-        setTimeout(grabSignal, 2500);
+        console.warn("Connection delay, retrying...");
+        setTimeout(() => grabSignal(attempts + 1), 3000);
     }
 }
 
 function showFinalLink(url) {
-    log("Link Captured! Ready to download.");
+    log("Boom! Link Captured Successfully!");
     resetButton();
     
     const area = document.getElementById('downloadArea');
@@ -101,7 +113,7 @@ function showFinalLink(url) {
     link.href = url;
     area.style.display = 'block';
     
-    // Mobile Vibrate
+    // Mobile par vibrate karne ke liye
     if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
 }
 
