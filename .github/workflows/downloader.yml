@@ -51,23 +51,26 @@ jobs:
             yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/dl_engine.mp4" "${{ inputs.youtube_url }}"
           fi
 
-      - name: TmpFiles Sniper Upload
+      - name: Private Multi-Upload Sniper
         run: |
           FILE_PATH=$(find output -type f | head -n 1)
           FILENAME=$(basename "$FILE_PATH")
           
-          RESPONSE=$(curl -s -F "file=@$FILE_PATH" https://tmpfiles.org/api/v1/upload)
+          # Try PixelDrain (Most stable)
+          PD_RES=$(curl -s -T "$FILE_PATH" https://pixeldrain.com/api/file/)
+          PD_ID=$(echo "$PD_RES" | python3 -c "import sys, json; print(json.load(sys.stdin).get('id', ''))")
           
-          python3 -c "
-          import sys, json
-          try:
-              data = json.loads(sys.stdin.read())
-              url = data['data']['url']
-              dl_url = url.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/') + '/$FILENAME'
-              print(f'\n\nLINK_READY: {dl_url}\n\n')
-          except Exception as e:
-              print(f'UPLOAD_FAILED')
-          " <<< "$RESPONSE"
+          if [ -n "$PD_ID" ]; then
+             echo "SGYT_LINK: https://pixeldrain.com/u/$PD_ID"
+          else
+             # Fallback to TmpFiles if PixelDrain fails
+             TMP_RES=$(curl -s -F "file=@$FILE_PATH" https://tmpfiles.org/api/v1/upload)
+             python3 -c "
+             import sys, json
+             data = json.loads(sys.stdin.read())
+             print(f\"SGYT_LINK: {data['data']['url'].replace('tmpfiles.org/', 'tmpfiles.org/dl/')}/$FILENAME\")
+             " <<< "$TMP_RES"
+          fi
 
       - name: Cleanup
         if: always()
