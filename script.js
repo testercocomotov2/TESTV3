@@ -1,7 +1,7 @@
 /**
- * SGYT Engine V9 - Litterbox Private Edition
+ * SGYT Engine V11 - MediaFire Private Edition
  * User: SlayerGamerYT
- * Domain: sgyt.is-best.net
+ * Repo: testercocomotov2/TESTV3
  */
 
 const REPO_OWNER = "testercocomotov2";
@@ -36,7 +36,7 @@ async function triggerAction() {
     const btn = document.getElementById('startBtn');
 
     if (!token || !url) {
-        log("Missing Token or URL.", "log-error");
+        log("Error: Token and URL are required.", "log-error");
         return;
     }
 
@@ -61,8 +61,8 @@ async function triggerAction() {
         });
 
         if (response.status === 204) {
-            log("Backend processing. Uploading to secure cloud...", "log-success");
-            setTimeout(() => trackProgress(token), 15000);
+            log("Backend processing. Uploading to MediaFire...", "log-success");
+            setTimeout(() => trackProgress(token), 20000);
         } else {
             const err = await response.json();
             throw new Error(err.message || response.status);
@@ -89,23 +89,23 @@ async function trackProgress(token) {
                 document.getElementById('startBtn').disabled = false;
                 
                 if (run.conclusion === 'success') {
-                    log("SUCCESS: Secure link generated!", "log-success");
+                    log("SUCCESS: MediaFire link generated!", "log-success");
                     const summaryUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/actions/runs/${run.id}`;
                     const linkBtn = document.getElementById('artifactLink');
                     linkBtn.href = summaryUrl;
-                    linkBtn.textContent = "🔗 Get Private Download Link";
+                    linkBtn.textContent = "🔗 Get MediaFire Link";
                     document.getElementById('downloadArea').style.display = 'block';
                 } else {
-                    log("Engine Failed. YouTube might have blocked the runner.", "log-error");
+                    log("Engine Failed. MediaFire upload or YouTube download crashed.", "log-error");
                 }
             } else {
-                log(`Processing... Status: ${run ? run.status : 'starting'}`);
+                log(`Status: ${run ? run.status : 'starting'}...`);
             }
         } catch (e) { console.error(e); }
 
-        if (attempts >= 100) {
+        if (attempts >= 150) {
             clearInterval(checkInterval);
-            log("Timeout reached.", "log-error");
+            log("Timeout: MediaFire is taking too long.", "log-error");
             document.getElementById('startBtn').disabled = false;
         }
     }, 10000);
