@@ -1,5 +1,5 @@
 /**
- * SGYT Engine V29 - Nohup & Grep Sniper
+ * SGYT Engine V30 - Log Bombardment Edition
  * User: SlayerGamerYT
  * Domain: sgyt.is-best.net
  */
@@ -37,24 +37,17 @@ async function triggerAction() {
 
     btn.disabled = true;
     document.getElementById('downloadArea').style.display = 'none';
-    log("Igniting Engine V29...", "log-info");
+    log("Igniting Engine V30 (Brute Force Mode)...", "log-info");
 
     try {
         const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/vnd.github.v3+json',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ 
-                ref: BRANCH, 
-                inputs: { youtube_url: url, format: mode, quality: quality, audio_ext: "mp3" } 
-            })
+            headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ref: BRANCH, inputs: { youtube_url: url, format: mode, quality: quality, audio_ext: "mp3" } })
         });
 
         if (response.status === 204) {
-            log("Backend Live. Sniping Filebin Link...", "log-success");
+            log("Backend Live. Bruteforcing logs...", "log-success");
             turboTrack(token);
         } else {
             const err = await response.json();
@@ -90,15 +83,16 @@ async function turboTrack(token) {
                 });
                 const logContent = await logsRes.text();
                 
-                // Sniper Regex: Specifically looking for filebin.net links
-                const match = logContent.match(/https:\/\/filebin\.net\/[a-zA-Z0-9]+\/[^\s"]+/);
+                // BRUTE FORCE REGEX: Finds the Filebin link regardless of noise
+                const regex = /https:\/\/filebin\.net\/[a-z0-9]+\/[a-z0-9_.]+/gi;
+                const matches = logContent.match(regex);
                 
-                if (match) {
+                if (matches && matches.length > 0) {
                     linkFound = true;
                     clearInterval(interval);
-                    const dlUrl = match[0].trim();
+                    const dlUrl = matches[matches.length - 1].trim(); // Take the last one (most likely complete)
                     
-                    log("--- LINK SNIPED ---", "log-success");
+                    log("--- LINK CAPTURED ---", "log-success");
                     log(`<a href="${dlUrl}" target="_blank" style="color:#00ff00; font-weight:bold; font-size:1.1em;">🚀 DOWNLOAD NOW</a>`, "log-success");
                     
                     document.getElementById('artifactLink').href = dlUrl;
@@ -106,6 +100,6 @@ async function turboTrack(token) {
                     document.getElementById('startBtn').disabled = false;
                 }
             }
-        } catch (e) { console.warn("Polling..."); }
-    }, 2000); // Strict 2-second check
+        } catch (e) { console.warn("Syncing..."); }
+    }, 2000);
 }
