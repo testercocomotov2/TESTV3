@@ -3,21 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>React YT Converter</title>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <link rel="stylesheet" href="style.css">
+    <title>YT Downloader + Debugger</title>
+    <style>
+        body {
+            background-color: #121212; color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex; flex-direction: column; align-items: center;
+            padding: 40px 20px; margin: 0;
+        }
+        .container {
+            background: #1e1e1e; padding: 30px; border-radius: 8px;
+            width: 100%; max-width: 600px; border: 1px solid #333;
+        }
+        h1 { color: #ff4444; margin-top: 0; }
+        input[type="text"] {
+            width: calc(100% - 24px); padding: 12px; margin-bottom: 15px;
+            background: #2a2a2a; border: 1px solid #444; color: white; border-radius: 4px;
+        }
+        button {
+            width: 100%; padding: 12px; background: #ff4444; color: white;
+            border: none; border-radius: 4px; font-weight: bold; cursor: pointer;
+        }
+        button:hover { background: #cc0000; }
+        
+        /* The Debug Console UI */
+        .terminal {
+            margin-top: 25px; background: #000; padding: 15px; border-radius: 6px;
+            border: 1px solid #333; height: 250px; overflow-y: auto; font-family: monospace;
+            font-size: 13px; color: #00ff00;
+        }
+        .terminal p { margin: 4px 0; }
+        .log-info { color: #88ccff; }
+        .log-success { color: #00ff00; }
+        .log-error { color: #ff4444; font-weight: bold; }
+        .log-warn { color: #ffcc00; }
+        
+        #download-area { margin-top: 15px; text-align: center; }
+        #download-area a {
+            display: inline-block; padding: 10px 20px; background: #28a745;
+            color: white; text-decoration: none; border-radius: 4px; font-weight: bold;
+        }
+    </style>
 </head>
-<body class="bg-gray-900 text-white min-h-screen flex items-center justify-center p-4">
-    
-    <div id="root" class="w-full max-w-lg"></div>
+<body>
 
-    <script type="text/babel" src="script.jsx"></script>
+    <div class="container">
+        <h1>Downloader & Debugger</h1>
+        <input type="text" id="urlInput" placeholder="Paste YouTube link here...">
+        <button id="convertBtn">Start Conversion</button>
+
+        <div id="download-area"></div>
+
+        <div class="terminal" id="debugConsole">
+            <p class="log-info">> System initialized. Waiting for input...</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
 </body>
 </html>
