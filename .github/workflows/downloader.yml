@@ -23,7 +23,6 @@ jobs:
       - name: Install Tools
         run: |
           brew install ffmpeg deno
-          pip3 install mediafire --break-system-packages
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
 
@@ -52,31 +51,33 @@ jobs:
             yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
           fi
 
-      - name: Multi-Cloud Private Upload
-        env:
-          MF_EMAIL: ${{ secrets.MF_EMAIL }}
-          MF_PASSWORD: ${{ secrets.MF_PASSWORD }}
+      - name: Secure Plain-Text Upload
         run: |
-          # 1. Rename file for clean upload
+          # 1. Rename to avoid any special character shell issues
           ORIGINAL_PATH=$(find output -type f | head -n 1)
           EXTENSION="${ORIGINAL_PATH##*.}"
-          SAFE_PATH="output/download_ready.$EXTENSION"
+          SAFE_PATH="output/dl_ready.$EXTENSION"
           mv "$ORIGINAL_PATH" "$SAFE_PATH"
 
-          # 2. PixelDrain Upload
-          echo "Uploading to PixelDrain..."
-          PD_RESPONSE=$(curl -s -T "$SAFE_PATH" "https://pixeldrain.com/api/file/download_ready.$EXTENSION")
-          PD_ID=$(echo "$PD_RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('id', ''))" || echo "")
-          if [ -n "$PD_ID" ]; then
-             echo "LINK_READY_PD: https://pixeldrain.com/u/$PD_ID"
+          echo "Attempting upload to developer-friendly hosts..."
+
+          # 2. Try 0x0.st (Returns plain text URL)
+          LINK=$(curl -s -F "file=@$SAFE_PATH" https://0x0.st)
+          
+          # 3. Fallback to envs.sh if 0x0.st is down
+          if [[ $LINK != http* ]]; then
+             echo "0x0.st failed, trying envs.sh..."
+             LINK=$(curl -s -F "file=@$SAFE_PATH" https://envs.sh)
           fi
 
-          # 3. File.io Upload
-          echo "Uploading to File.io..."
-          FIO_RESPONSE=$(curl -s -F "file=@$SAFE_PATH" https://file.io)
-          FIO_URL=$(echo "$FIO_RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('link', ''))" || echo "")
-          if [ -n "$FIO_URL" ]; then
-             echo "LINK_READY_FIO: $FIO_URL"
+          # 4. Final Output for JS Scraping
+          if [[ $LINK == http* ]]; then
+             echo "--------------------------------------------------"
+             echo "DIRECT_LINK: $LINK"
+             echo "--------------------------------------------------"
+          else
+             echo "All upload services failed."
+             exit 1
           fi
 
       - name: Cleanup
