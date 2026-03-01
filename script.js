@@ -1,5 +1,5 @@
 /**
- * SGYT Engine V35 - Client-Sync Fix
+ * SGYT Engine V36 - Signal Hunter (Turbo)
  * User: SlayerGamerYT
  * Domain: sgyt.is-best.net
  */
@@ -46,7 +46,7 @@ async function triggerAction() {
 
     btn.disabled = true;
     document.getElementById('downloadArea').style.display = 'none';
-    log("Igniting Engine V35 (Fixing Format Error)...", "log-info");
+    log("Engine Ignited. Bypassing Bot Check...", "log-info");
 
     try {
         const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
@@ -64,8 +64,8 @@ async function triggerAction() {
         });
 
         if (response.status === 204) {
-            log("Backend Live. Sniping link via Webhook...", "log-success");
-            startSignalListener();
+            log("Backend Live. Signal Hunter Active...", "log-success");
+            huntSignal();
         } else {
             const err = await response.json();
             throw new Error(err.message || response.status);
@@ -76,26 +76,50 @@ async function triggerAction() {
     }
 }
 
-async function startSignalListener() {
-    let linkFound = false;
+async function huntSignal() {
+    let found = false;
+    let attempts = 0;
+    
     const interval = setInterval(async () => {
-        if (linkFound) return;
+        if (found) return;
+        attempts++;
+
         try {
             const res = await fetch(POLL_API);
-            const data = await res.json();
-            if (data.data && data.data.length > 0) {
-                const content = data.data[0].content;
-                if (content && content.includes("filebin.net")) {
-                    linkFound = true;
-                    clearInterval(interval);
-                    const dlUrl = content.trim();
-                    log("--- SIGNAL SNIPED (ASAP) ---", "log-success");
-                    log(`<a href="${dlUrl}" target="_blank" style="color:#00ff00; font-weight:bold;">🚀 DOWNLOAD FILE</a>`, "log-success");
-                    document.getElementById('artifactLink').href = dlUrl;
-                    document.getElementById('downloadArea').style.display = 'block';
-                    document.getElementById('startBtn').disabled = false;
+            const json = await res.json();
+            
+            // Look through the last 5 requests to find our link
+            if (json.data && json.data.length > 0) {
+                for (let i = 0; i < Math.min(json.data.length, 5); i++) {
+                    const content = json.data[i].content;
+                    if (content && content.includes("filebin.net")) {
+                        found = true;
+                        clearInterval(interval);
+                        const dlUrl = content.trim();
+
+                        log("--- SIGNAL CAPTURED ---", "log-success");
+                        log(`<a href="${dlUrl}" target="_blank" style="color:#00ff00; font-weight:bold; font-size:1.1em; text-decoration:underline;">🚀 DOWNLOAD READY: CLICK HERE</a>`, "log-success");
+                        
+                        document.getElementById('artifactLink').href = dlUrl;
+                        document.getElementById('downloadArea').style.display = 'block';
+                        document.getElementById('startBtn').disabled = false;
+                        
+                        // Mobile vibration alert
+                        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+                        return;
+                    }
                 }
             }
-        } catch (e) { console.warn("Polling Signal..."); }
+            
+            // Heartbeat status
+            if (attempts % 5 === 0) console.log("Hunter still searching...");
+            
+        } catch (e) { console.warn("Signal Syncing..."); }
+        
+        if (attempts > 300) { // 10 minute timeout
+            clearInterval(interval);
+            log("Signal Timeout. Backend might have failed.", "log-error");
+            document.getElementById('startBtn').disabled = false;
+        }
     }, 2000); 
 }
