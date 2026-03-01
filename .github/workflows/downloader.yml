@@ -20,7 +20,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Tools
+      - name: Install Core Tools
         run: |
           brew install ffmpeg deno
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp
@@ -46,31 +46,26 @@ jobs:
           mkdir output
           FLAGS="--cookies final_cookies.txt --extractor-args youtube:player_skip_subscribe --no-check-certificates"
           if [ "${{ inputs.format }}" == "audio" ]; then
-            yt-dlp $FLAGS -x --audio-format ${{ inputs.audio_ext }} -o "output/dl_engine.%(ext)s" "${{ inputs.youtube_url }}"
+            yt-dlp $FLAGS -x --audio-format ${{ inputs.audio_ext }} -o "output/dl_ready.%(ext)s" "${{ inputs.youtube_url }}"
           else
-            yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/dl_engine.mp4" "${{ inputs.youtube_url }}"
+            yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/dl_ready.mp4" "${{ inputs.youtube_url }}"
           fi
 
-      - name: Private Multi-Upload Sniper
+      - name: Filebin Secure Upload
         run: |
           FILE_PATH=$(find output -type f | head -n 1)
           FILENAME=$(basename "$FILE_PATH")
+          # Generate a random 12-char bin ID for privacy
+          BIN_ID=$(openssl rand -hex 6)
           
-          # Try PixelDrain (Most stable)
-          PD_RES=$(curl -s -T "$FILE_PATH" https://pixeldrain.com/api/file/)
-          PD_ID=$(echo "$PD_RES" | python3 -c "import sys, json; print(json.load(sys.stdin).get('id', ''))")
+          echo "Uploading to Filebin (Bin: $BIN_ID)..."
           
-          if [ -n "$PD_ID" ]; then
-             echo "SGYT_LINK: https://pixeldrain.com/u/$PD_ID"
-          else
-             # Fallback to TmpFiles if PixelDrain fails
-             TMP_RES=$(curl -s -F "file=@$FILE_PATH" https://tmpfiles.org/api/v1/upload)
-             python3 -c "
-             import sys, json
-             data = json.loads(sys.stdin.read())
-             print(f\"SGYT_LINK: {data['data']['url'].replace('tmpfiles.org/', 'tmpfiles.org/dl/')}/$FILENAME\")
-             " <<< "$TMP_RES"
-          fi
+          # Upload using binary data as per API docs
+          curl -X POST --data-binary @"$FILE_PATH" "https://filebin.net/$BIN_ID/$FILENAME"
+          
+          echo "--------------------------------------------------"
+          echo "SGYT_LINK: https://filebin.net/$BIN_ID/$FILENAME"
+          echo "--------------------------------------------------"
 
       - name: Cleanup
         if: always()
