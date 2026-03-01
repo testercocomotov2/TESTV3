@@ -20,7 +20,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Core Tools
+      - name: Install Tools
         run: |
           brew install ffmpeg deno
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp
@@ -44,22 +44,18 @@ jobs:
       - name: Download Media
         run: |
           mkdir output
-          # Fixed: Correct formatting for extractor-args (no double quotes inside)
           FLAGS="--cookies final_cookies.txt --extractor-args youtube:player_skip_subscribe --no-check-certificates"
-          
           if [ "${{ inputs.format }}" == "audio" ]; then
             yt-dlp $FLAGS -x --audio-format ${{ inputs.audio_ext }} -o "output/dl_engine.%(ext)s" "${{ inputs.youtube_url }}"
           else
-            # Limit quality based on input and ensure mp4 container
-            yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "output/dl_engine.mp4" "${{ inputs.youtube_url }}"
+            yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/dl_engine.mp4" "${{ inputs.youtube_url }}"
           fi
 
-      - name: Private TmpFiles Upload
+      - name: TmpFiles Sniper Upload
         run: |
           FILE_PATH=$(find output -type f | head -n 1)
           FILENAME=$(basename "$FILE_PATH")
           
-          # Upload to tmpfiles.org API
           RESPONSE=$(curl -s -F "file=@$FILE_PATH" https://tmpfiles.org/api/v1/upload)
           
           python3 -c "
@@ -67,11 +63,10 @@ jobs:
           try:
               data = json.loads(sys.stdin.read())
               url = data['data']['url']
-              # Construct direct download URL: /dl/ID/filename
               dl_url = url.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/') + '/$FILENAME'
-              print(f'\n\nSUCCESS_LINK: {dl_url}\n\n')
-          except:
-              print('UPLOAD_FAILED')
+              print(f'\n\nLINK_READY: {dl_url}\n\n')
+          except Exception as e:
+              print(f'UPLOAD_FAILED')
           " <<< "$RESPONSE"
 
       - name: Cleanup
