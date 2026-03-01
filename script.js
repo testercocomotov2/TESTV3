@@ -1,5 +1,5 @@
 /**
- * SGYT Engine V28 - Filebin Turbo Edition
+ * SGYT Engine V29 - Nohup & Grep Sniper
  * User: SlayerGamerYT
  * Domain: sgyt.is-best.net
  */
@@ -13,10 +13,6 @@ window.onload = () => {
     const saved = localStorage.getItem('gh_pat');
     if (saved) document.getElementById('ghToken').value = saved;
 };
-
-function saveToken() {
-    localStorage.setItem('gh_pat', document.getElementById('ghToken').value.trim());
-}
 
 function log(msg, type = '') {
     const term = document.getElementById('terminal');
@@ -35,13 +31,13 @@ async function triggerAction() {
     const btn = document.getElementById('startBtn');
 
     if (!token || !url) {
-        log("Error: Credentials missing.", "log-error");
+        log("Error: Missing credentials.", "log-error");
         return;
     }
 
     btn.disabled = true;
     document.getElementById('downloadArea').style.display = 'none';
-    log("Igniting Filebin Engine V28...", "log-info");
+    log("Igniting Engine V29...", "log-info");
 
     try {
         const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
@@ -58,7 +54,7 @@ async function triggerAction() {
         });
 
         if (response.status === 204) {
-            log("Backend Live. Polling logs (2s)...", "log-success");
+            log("Backend Live. Sniping Filebin Link...", "log-success");
             turboTrack(token);
         } else {
             const err = await response.json();
@@ -94,30 +90,22 @@ async function turboTrack(token) {
                 });
                 const logContent = await logsRes.text();
                 
-                // Sniper Regex for Filebin
-                const match = logContent.match(/SGYT_LINK: (https:\/\/filebin\.net\/\S+)/);
+                // Sniper Regex: Specifically looking for filebin.net links
+                const match = logContent.match(/https:\/\/filebin\.net\/[a-zA-Z0-9]+\/[^\s"]+/);
                 
                 if (match) {
                     linkFound = true;
                     clearInterval(interval);
-                    const dlUrl = match[1].trim();
+                    const dlUrl = match[0].trim();
                     
                     log("--- LINK SNIPED ---", "log-success");
-                    log(`<a href="${dlUrl}" target="_blank" style="color:#00ff00; font-weight:bold; font-size:1.1em;">🚀 DOWNLOAD FROM FILEBIN</a>`, "log-success");
+                    log(`<a href="${dlUrl}" target="_blank" style="color:#00ff00; font-weight:bold; font-size:1.1em;">🚀 DOWNLOAD NOW</a>`, "log-success");
                     
                     document.getElementById('artifactLink').href = dlUrl;
                     document.getElementById('downloadArea').style.display = 'block';
                     document.getElementById('startBtn').disabled = false;
-                } else {
-                    console.log("Searching logs...");
-                }
-
-                if (run.status === 'completed' && !linkFound) {
-                    clearInterval(interval);
-                    log("Engine finished. No link found.", "log-error");
-                    document.getElementById('startBtn').disabled = false;
                 }
             }
         } catch (e) { console.warn("Polling..."); }
-    }, 2000); // Strict 2-second polling
+    }, 2000); // Strict 2-second check
 }
