@@ -14,19 +14,19 @@ on:
 
 jobs:
   download_and_convert:
-    runs-on: macos-latest # FIXED: removed the double 'runs-runs-on' typo
+    runs-on: macos-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Dependencies
+      - name: Install Tools
         run: |
           brew install ffmpeg deno
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
 
-      - name: Fix Cookies
+      - name: Cookie Repair
         env:
           YT_COOKIES_SECRET: ${{ secrets.YT_COOKIES }}
         run: |
@@ -37,25 +37,39 @@ jobs:
               with open('raw.txt', 'r') as f, open('final_cookies.txt', 'w') as out:
                   out.write('# Netscape HTTP Cookie File\n')
                   for line in f:
-                      parts = line.strip().split()
-                      if len(parts) == 7:
-                          out.write('\t'.join(parts) + '\n')
+                      p = line.strip().split()
+                      if len(p) == 7: out.write('\t'.join(p) + '\n')
           "
 
-      - name: Execute Download
+      - name: Download Media
         run: |
           mkdir output
           FLAGS="--cookies final_cookies.txt --extractor-args youtube:client=ios,android,tv"
-          
           if [ "${{ inputs.format }}" == "audio" ]; then
             yt-dlp $FLAGS -x --audio-format ${{ inputs.audio_ext }} -o "output/%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
           else
             yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
           fi
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Downloaded_Media
-          path: output/*
-          retention-days: 1
+      - name: Upload to GoFile (Private)
+        run: |
+          # Find the file name
+          FILE=$(ls output | head -n 1)
+          echo "Uploading $FILE to GoFile..."
+          
+          # Get the best server for upload
+          SERVER=$(curl -s https://api.gofile.io/getServer | jq -r '.data.server')
+          
+          # Upload and capture the response
+          RESPONSE=$(curl -F "file=@output/$FILE" "https://$SERVER.gofile.io/uploadFile")
+          
+          # Extract the download page URL
+          DOWNLOAD_LINK=$(echo $RESPONSE | jq -r '.data.downloadPage')
+          
+          echo "--------------------------------------------------"
+          echo "PRIVATE DOWNLOAD LINK: $DOWNLOAD_LINK"
+          echo "--------------------------------------------------"
+          
+          # Add to GitHub Step Summary so you can see it easily
+          echo "### 🚀 Your Download is Ready!" >> $GITHUB_STEP_SUMMARY
+          echo "[Click here to Download]($DOWNLOAD_LINK)" >> $GITHUB_STEP_SUMMARY
