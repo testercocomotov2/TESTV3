@@ -3,62 +3,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YT Downloader + Debugger</title>
+    <title>Standalone YT Converter</title>
+    
     <style>
         body {
-            background-color: #121212; color: #ffffff;
+            background-color: #121212; 
+            color: #ffffff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex; flex-direction: column; align-items: center;
-            padding: 40px 20px; margin: 0;
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
         }
         .container {
-            background: #1e1e1e; padding: 30px; border-radius: 8px;
-            width: 100%; max-width: 600px; border: 1px solid #333;
+            background: #1e1e1e; 
+            padding: 40px; 
+            border-radius: 12px;
+            width: 90%; 
+            max-width: 450px; 
+            box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+            text-align: center;
         }
-        h1 { color: #ff4444; margin-top: 0; }
+        h1 { 
+            color: #ff0000; 
+            margin-top: 0; 
+            margin-bottom: 5px;
+        }
+        p {
+            color: #aaaaaa;
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
         input[type="text"] {
-            width: calc(100% - 24px); padding: 12px; margin-bottom: 15px;
-            background: #2a2a2a; border: 1px solid #444; color: white; border-radius: 4px;
+            width: calc(100% - 30px); 
+            padding: 15px; 
+            margin-bottom: 20px;
+            background: #2a2a2a; 
+            border: 1px solid #444; 
+            color: white; 
+            border-radius: 6px;
+            font-size: 16px;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #ff0000;
+        }
+        .radio-group {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 25px;
+            color: #cccccc;
         }
         button {
-            width: 100%; padding: 12px; background: #ff4444; color: white;
-            border: none; border-radius: 4px; font-weight: bold; cursor: pointer;
+            width: 100%; 
+            padding: 15px; 
+            background: #ff0000; 
+            color: white;
+            border: none; 
+            border-radius: 6px; 
+            font-weight: bold; 
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
         }
-        button:hover { background: #cc0000; }
-        
-        /* The Debug Console UI */
-        .terminal {
-            margin-top: 25px; background: #000; padding: 15px; border-radius: 6px;
-            border: 1px solid #333; height: 250px; overflow-y: auto; font-family: monospace;
-            font-size: 13px; color: #00ff00;
+        button:hover { 
+            background: #cc0000; 
         }
-        .terminal p { margin: 4px 0; }
-        .log-info { color: #88ccff; }
-        .log-success { color: #00ff00; }
-        .log-error { color: #ff4444; font-weight: bold; }
-        .log-warn { color: #ffcc00; }
-        
-        #download-area { margin-top: 15px; text-align: center; }
-        #download-area a {
-            display: inline-block; padding: 10px 20px; background: #28a745;
-            color: white; text-decoration: none; border-radius: 4px; font-weight: bold;
+        #statusMessage {
+            margin-top: 20px;
+            font-weight: bold;
+            min-height: 20px;
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>Downloader & Debugger</h1>
-        <input type="text" id="urlInput" placeholder="Paste YouTube link here...">
-        <button id="convertBtn">Start Conversion</button>
+        <h1>YT Fast Downloader</h1>
+        <p>100% Uptime • Zero Setup</p>
 
-        <div id="download-area"></div>
-
-        <div class="terminal" id="debugConsole">
-            <p class="log-info">> System initialized. Waiting for input...</p>
+        <input type="text" id="videoUrl" placeholder="Paste YouTube link here..." autocomplete="off">
+        
+        <div class="radio-group">
+            <label>
+                <input type="radio" name="format" value="video" checked> Video (MP4)
+            </label>
+            <label>
+                <input type="radio" name="format" value="audio"> Audio (MP3)
+            </label>
         </div>
+
+        <button onclick="processDownload()">Download Now</button>
+
+        <div id="statusMessage"></div>
     </div>
 
-    <script src="script.js"></script>
+    <script>
+        function processDownload() {
+            const urlInput = document.getElementById('videoUrl').value.trim();
+            const statusEl = document.getElementById('statusMessage');
+            
+            // 1. Simple Validation
+            if (!urlInput.includes('youtu')) {
+                statusEl.innerText = "Error: Please enter a valid YouTube link.";
+                statusEl.style.color = "#ff4444";
+                return;
+            }
+
+            // 2. Check format selection
+            const isAudio = document.querySelector('input[name="format"][value="audio"]').checked;
+
+            // 3. Update UI
+            statusEl.innerText = "Redirecting to secure download server...";
+            statusEl.style.color = "#28a745";
+
+            // 4. Construct the redirect URL (Bypasses all browser CORS blocks)
+            let processorUrl = `https://cobalt.tools/?u=${encodeURIComponent(urlInput)}`;
+            if (isAudio) {
+                processorUrl += `&a=true`;
+            }
+
+            // 5. Open processor in new tab
+            setTimeout(() => {
+                window.open(processorUrl, '_blank');
+                statusEl.innerText = ""; // Reset status
+                document.getElementById('videoUrl').value = ""; // Clear input
+            }, 1000);
+        }
+    </script>
+
 </body>
 </html>
