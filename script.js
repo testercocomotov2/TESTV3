@@ -1,5 +1,5 @@
 /**
- * SGYT Engine V22 - Extractor Sync
+ * SGYT Engine V23 - Shell Formatting Fix
  * User: SlayerGamerYT
  * Domain: sgyt.is-best.net
  */
@@ -41,7 +41,7 @@ async function triggerAction() {
 
     btn.disabled = true;
     document.getElementById('downloadArea').style.display = 'none';
-    log("Engine Ignited! Bypassing restrictions...", "log-info");
+    log("Igniting Engine V23...", "log-info");
 
     try {
         const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
@@ -63,7 +63,7 @@ async function triggerAction() {
         });
 
         if (response.status === 204) {
-            log("Backend processing. Monitoring live stream...", "log-success");
+            log("Backend processing. Tracking live stream...", "log-success");
             trackLiveLogs(token);
         } else {
             const err = await response.json();
@@ -108,12 +108,13 @@ async function trackLiveLogs(token) {
                     log("--- DOWNLOAD READY ---", "log-success");
                     log(`<a href="${cleanUrl}" target="_blank" style="color:#00ff00; font-weight:bold;">🚀 DOWNLOAD NOW</a>`, "log-success");
                     
-                    document.getElementById('artifactLink').href = cleanUrl;
+                    const linkBtn = document.getElementById('artifactLink');
+                    linkBtn.href = cleanUrl;
                     document.getElementById('downloadArea').style.display = 'block';
                     document.getElementById('startBtn').disabled = false;
                 } else if (run.status === 'completed' && run.conclusion !== 'success') {
                     clearInterval(interval);
-                    log("Engine Crash: Check YouTube Cookies.", "log-error");
+                    log("Engine Crash. Check YouTube Cookies.", "log-error");
                     document.getElementById('startBtn').disabled = false;
                 }
             }
