@@ -26,20 +26,24 @@ jobs:
 
       - name: Install FFmpeg, Deno, and latest yt-dlp
         run: |
-          # Install the required Deno JS engine and FFmpeg using Mac's Homebrew
           brew install ffmpeg deno
-          
-          # Download the absolute latest, bleeding-edge version of yt-dlp
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
+
+      - name: Load Cookies Securely
+        env:
+          YT_COOKIES_SECRET: ${{ secrets.YT_COOKIES }}
+        run: |
+          # Write the secret from GitHub into a local file for yt-dlp to read
+          echo "$YT_COOKIES_SECRET" > cookies.txt
 
       - name: Download Media
         run: |
           mkdir output
           cd output
           
-          # Advanced spoofing: Disguise the Mac as an iOS/Android device
-          SPOOF_FLAGS="--extractor-args youtube:client=ios,android,tv"
+          # We now pass the cookies file to bypass the bot check
+          SPOOF_FLAGS="--cookies ../cookies.txt --extractor-args youtube:client=ios,android,tv"
 
           if [ "${{ inputs.format }}" == "audio" ]; then
             echo "Downloading Audio..."
@@ -55,3 +59,4 @@ jobs:
           name: Downloaded_Media
           path: output/*
           retention-days: 1
+          
