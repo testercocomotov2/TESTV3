@@ -30,7 +30,6 @@ jobs:
         env:
           YT_COOKIES_SECRET: ${{ secrets.YT_COOKIES }}
         run: |
-          # Reconstructing Netscape cookie format from secrets
           echo "$YT_COOKIES_SECRET" > raw.txt
           python3 -c "
           import os
@@ -45,8 +44,8 @@ jobs:
       - name: Download Media
         run: |
           mkdir output
-          # Using cookies and specifying the JS runtime for extraction
-          FLAGS="--cookies final_cookies.txt --javascript-delay 5"
+          # Removed invalid delay option, using extractor-args for better bot-bypass
+          FLAGS="--cookies final_cookies.txt --extractor-args 'youtube:player_skip_subscribe'"
           
           if [ "${{ inputs.format }}" == "audio" ]; then
             yt-dlp $FLAGS -x --audio-format ${{ inputs.audio_ext }} -o "output/dl_engine.%(ext)s" "${{ inputs.youtube_url }}"
