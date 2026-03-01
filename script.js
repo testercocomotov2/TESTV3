@@ -1,50 +1,93 @@
-document.getElementById('downloadBtn').addEventListener('click', () => {
-    // 1. Get references to the DOM elements
+document.getElementById('downloadBtn').addEventListener('click', async () => {
     const urlInput = document.getElementById('videoUrl').value.trim();
     const isAudioOnly = document.getElementById('audioOnly').checked;
     const statusEl = document.getElementById('status');
     const resultEl = document.getElementById('result');
     const btn = document.getElementById('downloadBtn');
 
-    // 2. Clear previous results and reset button
+    // 1. Reset UI
     resultEl.innerHTML = "";
-    btn.disabled = false;
+    statusEl.innerText = "";
+    btn.disabled = true;
 
-    // 3. Basic Validation: Check if it's a valid YouTube link
+    // 2. Validate URL
     const ytRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.?be)\/.+$/;
     if (!ytRegex.test(urlInput)) {
         statusEl.innerText = "Error: Please enter a valid YouTube URL.";
-        statusEl.style.color = "#ff4444"; // Red for error
+        statusEl.style.color = "#ff4444";
+        btn.disabled = false;
         return;
     }
 
-    // 4. Update UI Status to show processing
-    statusEl.innerText = "Generating download button...";
-    statusEl.style.color = "#ffcc00"; // Yellow for processing
-    
-    // 5. Determine the format based on the checkbox
-    // 'mp3' for audio only, '720' for standard HD video
-    const format = isAudioOnly ? 'mp3' : '720';
+    // 3. Update Status
+    statusEl.innerText = "Connecting to API... please wait.";
+    statusEl.style.color = "#ffcc00";
 
-    // 6. Construct the widget URL using the Loader.to API
-    // We encode the URL to ensure special characters don't break the link
-    const widgetUrl = `https://loader.to/api/button/?url=${encodeURIComponent(urlInput)}&f=${format}&color=ff0000`;
+    // 4. Set up the correct Cobalt v10 API payload
+    const payload = {
+        url: urlInput,
+        // If audio only, set downloadMode to audio. Otherwise, default auto (video)
+        downloadMode: isAudioOnly ? "audio" : "auto",
+        audioFormat: "mp3",
+        videoQuality: "720"
+    };
 
-    // 7. Inject the iframe directly into the results div
-    resultEl.innerHTML = `
-        <iframe 
-            src="${widgetUrl}" 
-            style="width: 100%; height: 65px; border: none; overflow: hidden; margin-top: 15px; border-radius: 6px; background-color: transparent;" 
-            scrolling="no">
-        </iframe>
-    `;
+    try {
+        // 5. Fetch from Cobalt's NEW v10 endpoint
+        // NOTE: Cobalt strictly requires the 'Accept' and 'Content-Type' headers
+        const response = await fetch("https://api.cobalt.tools/", {
+            method: "POST",
+            headers: {
+                "Accept": "application/json",
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        });
 
-    // 8. Final Status Update
-    statusEl.innerText = "Ready! Click the download button below.";
-    statusEl.style.color = "#28a745"; // Green for success
+        // 6. Handle HTTP Errors (like 403 or 429 Rate Limits)
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error?.code || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // 7. Process the API response
+        if (data.status === "error") {
+            statusEl.innerText = "Conversion failed: " + (data.text || "Unknown error");
+            statusEl.style.color = "#ff4444";
+        } else if (data.url) {
+            // Success! Generate the direct download button
+            statusEl.innerText = "Conversion successful!";
+            statusEl.style.color = "#28a745";
+            
+            resultEl.innerHTML = `
+                <a href="${data.url}" target="_blank" style="
+                    display: inline-block;
+                    margin-top: 15px;
+                    padding: 12px 25px;
+                    background-color: #28a745;
+                    color: white;
+                    text-decoration: none;
+                    border-radius: 6px;
+                    font-weight: bold;
+                    transition: background 0.2s;
+                ">⬇ Download ${isAudioOnly ? 'MP3 Audio' : 'MP4 Video'}</a>
+            `;
+        } else {
+            throw new Error("API did not return a download link.");
+        }
+
+    } catch (error) {
+        console.error("Fetch Error:", error);
+        statusEl.innerText = `Error: ${error.message}. The API might be rate-limited right now.`;
+        statusEl.style.color = "#ff4444";
+    } finally {
+        btn.disabled = false; // Re-enable the button
+    }
 });
 
-// Optional: Allow pressing "Enter" in the input field to trigger the button
+// Allow hitting "Enter" in the text box
 document.getElementById('videoUrl').addEventListener('keypress', function (e) {
     if (e.key === 'Enter') {
         document.getElementById('downloadBtn').click();
