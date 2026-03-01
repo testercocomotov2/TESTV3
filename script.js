@@ -1,7 +1,7 @@
 /**
- * SGYT Engine V19 - Live Link Scraper
+ * SGYT Engine V20 - Input Sync Patch
  * User: SlayerGamerYT
- * Repo: testercocomotov2/TESTV3
+ * Domain: sgyt.is-best.net
  */
 
 const REPO_OWNER = "testercocomotov2";
@@ -35,13 +35,13 @@ async function triggerAction() {
     const btn = document.getElementById('startBtn');
 
     if (!token || !url) {
-        log("Error: Missing credentials.", "log-error");
+        log("Error: Token and URL are required.", "log-error");
         return;
     }
 
     btn.disabled = true;
     document.getElementById('downloadArea').style.display = 'none';
-    log("Engine Ignited! Monitoring live logs...", "log-info");
+    log("Igniting Engine...", "log-info");
 
     try {
         const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
@@ -51,17 +51,26 @@ async function triggerAction() {
                 'Accept': 'application/vnd.github.v3+json',
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ ref: BRANCH, inputs: { youtube_url: url, format: mode, quality: quality } })
+            body: JSON.stringify({ 
+                ref: BRANCH, 
+                inputs: { 
+                    youtube_url: url, 
+                    format: mode, 
+                    quality: quality,
+                    audio_ext: "mp3" // Added to match the YAML input
+                } 
+            })
         });
 
         if (response.status === 204) {
-            log("Backend started. Searching for download link...", "log-success");
+            log("Backend processing. Live monitoring active.", "log-success");
             trackLiveLogs(token);
         } else {
-            throw new Error(`GitHub Error: ${response.status}`);
+            const err = await response.json();
+            throw new Error(err.message || response.status);
         }
     } catch (error) {
-        log(error.message, "log-error");
+        log("Launch Error: " + error.message, "log-error");
         btn.disabled = false;
     }
 }
@@ -72,15 +81,14 @@ async function trackLiveLogs(token) {
         if (linkFound) return;
 
         try {
-            const runsRes = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/runs?per_page=1`, {
+            const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/runs?per_page=1`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            const runsData = await runsRes.json();
-            const run = runsData.workflow_runs[0];
+            const data = await res.json();
+            const run = data.workflow_runs[0];
 
             if (!run || run.status === 'queued') return;
 
-            // Fetch logs while the job is still running (In-Progress)
             const jobsRes = await fetch(run.jobs_url, { headers: { 'Authorization': `Bearer ${token}` } });
             const jobsData = await jobsRes.json();
             const job = jobsData.jobs[0];
@@ -91,7 +99,7 @@ async function trackLiveLogs(token) {
                 });
                 const logText = await logsRes.text();
                 
-                // Match the tmpfiles download format
+                // Deep Search for the TmpFiles link
                 const match = logText.match(/https:\/\/tmpfiles\.org\/dl\/\S+/);
                 
                 if (match) {
@@ -99,18 +107,17 @@ async function trackLiveLogs(token) {
                     clearInterval(interval);
                     const cleanUrl = match[0].trim();
                     log("--- DOWNLOAD READY ---", "log-success");
-                    log(`<a href="${cleanUrl}" target="_blank" style="color:#00ff00; font-weight:bold; font-size:1.2em;">🚀 DOWNLOAD NOW</a>`, "log-success");
+                    log(`<a href="${cleanUrl}" target="_blank" style="color:#00ff00; font-weight:bold;">🚀 DOWNLOAD FILE NOW</a>`, "log-success");
                     
-                    const linkBtn = document.getElementById('artifactLink');
-                    linkBtn.href = cleanUrl;
+                    document.getElementById('artifactLink').href = cleanUrl;
                     document.getElementById('downloadArea').style.display = 'block';
                     document.getElementById('startBtn').disabled = false;
                 } else if (run.status === 'completed' && run.conclusion !== 'success') {
                     clearInterval(interval);
-                    log("Engine Failed. YouTube might have blocked the runner.", "log-error");
+                    log("Engine Crash. Check YouTube Cookies/URL.", "log-error");
                     document.getElementById('startBtn').disabled = false;
                 }
             }
         } catch (e) { console.error("Polling..."); }
-    }, 5000); // Check every 5 seconds for absolute speed
+    }, 5000);
 }
