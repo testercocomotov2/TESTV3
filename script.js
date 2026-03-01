@@ -1,123 +1,57 @@
-/**
- * SGYT Engine V41 - Full Script & End-Link Grabber
- * User: SlayerGamerYT
- */
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SGYT Engine | V45 (Zero Polling)</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
+</head>
+<body>
 
-const REPO_OWNER = "testercocomotov2";
-const REPO_NAME = "TESTV3";
-const WORKFLOW_FILE = "downloader.yml";
-const BRANCH = "main"; 
-const WEBHOOK_TOKEN = "1a9bc849-a393-458c-86a8-4d78aa4bb7af";
+    <div class="downloader-container">
+        <h1 class="brand-title">SGYT <span>Engine</span></h1>
+        <p class="subtitle">Convert & Download Videos Instantly (Live Push)</p>
 
-// sorting=newest ensure karega ki last mein aayi hui link sabse upar mile
-const POLL_API = `https://webhook.site/token/${WEBHOOK_TOKEN}/requests?sorting=newest`;
+        <div class="token-box">
+            <input type="password" id="ghToken" placeholder="🔒 Enter GitHub PAT..." onchange="saveToken()">
+        </div>
 
-const btn = document.getElementById('startBtn');
-const terminal = document.getElementById('terminal');
+        <div class="input-group">
+            <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+            <input type="text" id="ytUrl" placeholder="Paste Your YouTube URL..." autocomplete="off">
+        </div>
 
-window.onload = () => {
-    const saved = localStorage.getItem('gh_pat');
-    if (saved) document.getElementById('ghToken').value = saved;
-};
+        <div class="action-bar">
+            <select id="mode" class="custom-select">
+                <option value="video">MP4</option>
+                <option value="audio">MP3</option>
+            </select>
+            
+            <select id="quality" class="custom-select">
+                <option value="2160">4K</option>
+                <option value="1440">2K</option>
+                <option value="1080" selected>1080p</option>
+                <option value="720">720p</option>
+            </select>
 
-function saveToken() {
-    localStorage.setItem('gh_pat', document.getElementById('ghToken').value.trim());
-}
+            <button id="startBtn" onclick="triggerAction()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                <span>Download</span>
+            </button>
+        </div>
 
-function log(msg, isError = false) {
-    const p = document.createElement('p');
-    if (isError) p.style.color = "#ef4444"; 
-    p.innerHTML = `<span class="prompt">~</span> ${msg}`;
-    terminal.prepend(p);
-    if (terminal.children.length > 6) terminal.lastChild.remove();
-}
+        <div id="downloadArea" class="download-ready">
+            <p>🎉 File is ready to save!</p>
+            <a id="artifactLink" target="_blank">Download File</a>
+        </div>
 
-async function triggerAction() {
-    const token = document.getElementById('ghToken').value.trim();
-    const url = document.getElementById('ytUrl').value.trim();
-    const mode = document.getElementById('mode').value;
-    const quality = document.getElementById('quality').value;
+        <div id="terminal" class="mini-terminal">
+            <p><span class="prompt">~</span> Pusher Socket Ready, SlayerGamerYT.</p>
+        </div>
+    </div>
 
-    if (!token || !url) { log("Token ya URL missing hai bhai!", true); return; }
-
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> <span>Processing...</span>';
-    document.getElementById('downloadArea').style.display = 'none';
-    log("Engine Ignited. GitHub backend started...");
-
-    try {
-        const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                ref: BRANCH, 
-                inputs: { 
-                    youtube_url: url, 
-                    format: mode, 
-                    quality: quality, 
-                    webhook_url: `https://webhook.site/${WEBHOOK_TOKEN}` 
-                } 
-            })
-        });
-
-        if (response.status === 204) {
-            log("Backend Active. Upload finish hone ka wait kar rahe hain...");
-            // Attempts = 0 se start karo
-            grabSignal(0); 
-        } else {
-            throw new Error("GitHub ne request reject kar di.");
-        }
-    } catch (e) {
-        log(e.message, true);
-        resetButton();
-    }
-}
-
-// Ye function backend ke final upload link ko direct grab karega
-async function grabSignal(attempts) {
-    if (attempts > 60) { // 2 minute ka timeout (agar badi video ho toh badha sakte ho)
-        log("Timeout: Upload hone mein zyada time lag gaya ya process fail hua.", true);
-        resetButton();
-        return;
-    }
-
-    try {
-        const response = await fetch(POLL_API);
-        // Pure text format mein data utha rahe hain (No JSON crash)
-        const rawText = await response.text(); 
-
-        // Regex: Ye directly us last link ko nikalega jo Webhook par POST hui hai
-        const match = rawText.match(/https:(?:\\\/|\/)filebin\.net(?:\\\/|\/)[a-zA-Z0-9]+(?:\\\/|\/)[^"'\s\\]+/i);
-
-        if (match) {
-            // Slashes clean karo aur final link set karo
-            const cleanLink = match[0].replace(/\\/g, '');
-            showFinalLink(cleanLink);
-        } else {
-            // Agar upload abhi tak complete nahi hua, toh 2 second baad fir search karo
-            setTimeout(() => grabSignal(attempts + 1), 2000);
-        }
-    } catch (e) {
-        console.warn("Connection delay, retrying...");
-        setTimeout(() => grabSignal(attempts + 1), 3000);
-    }
-}
-
-function showFinalLink(url) {
-    log("Boom! Link Captured Successfully!");
-    resetButton();
-    
-    const area = document.getElementById('downloadArea');
-    const link = document.getElementById('artifactLink');
-    
-    link.href = url;
-    area.style.display = 'block';
-    
-    // Mobile par vibrate karne ke liye
-    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-}
-
-function resetButton() {
-    btn.disabled = false;
-    btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Download Again</span>`;
-}
+    <script src="script.js"></script>
+</body>
+</html>
