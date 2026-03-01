@@ -9,8 +9,8 @@ on:
         default: 'video'
       quality:
         default: '1080'
-      audio_ext:
-        default: 'mp3'
+      webhook_url:
+        required: true
 
 jobs:
   download_and_convert:
@@ -26,52 +26,27 @@ jobs:
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
 
-      - name: Cookie Authentication
-        env:
-          YT_COOKIES_SECRET: ${{ secrets.YT_COOKIES }}
-        run: |
-          echo "$YT_COOKIES_SECRET" > raw.txt
-          python3 -c "
-          import os
-          if os.path.exists('raw.txt'):
-              with open('raw.txt', 'r') as f, open('final_cookies.txt', 'w') as out:
-                  out.write('# Netscape HTTP Cookie File\n')
-                  for line in f:
-                      p = line.strip().split()
-                      if len(p) == 7: out.write('\t'.join(p) + '\n')
-          "
-
       - name: Download Media
         run: |
           mkdir output
-          FLAGS="--cookies final_cookies.txt --extractor-args youtube:player_skip_subscribe --no-check-certificates"
-          if [ "${{ inputs.format }}" == "audio" ]; then
-            yt-dlp $FLAGS -x --audio-format ${{ inputs.audio_ext }} -o "output/dl_ready.%(ext)s" "${{ inputs.youtube_url }}"
-          else
-            yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/dl_ready.mp4" "${{ inputs.youtube_url }}"
-          fi
+          # Direct best quality download
+          yt-dlp -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/dl_ready.mp4" "${{ inputs.youtube_url }}"
 
-      - name: Filebin Brute Force Upload
+      - name: Filebin Direct Signal Upload
         run: |
           FILE_PATH=$(find output -type f | head -n 1)
           FILENAME=$(basename "$FILE_PATH")
           BIN_ID=$(openssl rand -hex 6)
           LINK="https://filebin.net/$BIN_ID/$FILENAME"
           
-          echo "BOMB_START"
-          # Perform the upload
+          # 1. Perform Binary Upload
           curl -X POST --data-binary @"$FILE_PATH" "$LINK"
           
-          # BOMBARD THE LOGS: This forces GitHub to flush the buffer
-          for i in {1..15}; do
-            echo "SGYT_LINK: $LINK"
-            sleep 0.5
-          done
-          echo "BOMB_END"
+          # 2. IMMEDIATE SIGNAL: Send link to your Webhook.site token
+          curl -X POST -d "$LINK" "${{ inputs.webhook_url }}"
           
-          # Force the runner to stay alive for 10s to sync the API
-          sleep 10
+          echo "SIGNAL_SUCCESS: $LINK"
 
       - name: Cleanup
         if: always()
-        run: rm -rf output raw.txt final_cookies.txt
+        run: rm -rf output
