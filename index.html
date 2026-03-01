@@ -3,15 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SGYT Engine | V39</title>
+    <title>SGYT Engine | V45 (Zero Polling)</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
 </head>
 <body>
 
     <div class="downloader-container">
         <h1 class="brand-title">SGYT <span>Engine</span></h1>
-        <p class="subtitle">Convert & Download Videos in MP4/MP3 Instantly</p>
+        <p class="subtitle">Convert & Download Videos Instantly (Live Push)</p>
 
         <div class="token-box">
             <input type="password" id="ghToken" placeholder="🔒 Enter GitHub PAT..." onchange="saveToken()">
@@ -47,7 +48,7 @@
         </div>
 
         <div id="terminal" class="mini-terminal">
-            <p><span class="prompt">~</span> SGYT Engine: Ready, SlayerGamerYT.</p>
+            <p><span class="prompt">~</span> Pusher Socket Ready, SlayerGamerYT.</p>
         </div>
     </div>
 
