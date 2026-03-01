@@ -44,29 +44,28 @@ jobs:
       - name: Download Media
         run: |
           mkdir output
-          # Using tv and web clients because they support cookies properly
-          # This prevents the 'Sign in to confirm you are not a bot' error
-          FLAGS="--cookies final_cookies.txt --extractor-args youtube:player-client=tv,web --no-check-certificates --merge-output-format mp4"
+          # Using tv client + cookies is the best way to bypass bot check
+          FLAGS="--cookies final_cookies.txt --extractor-args youtube:player-client=tv,web --no-check-certificates"
           
           if [ "${{ inputs.format }}" == "audio" ]; then
             yt-dlp $FLAGS -x --audio-format mp3 -o "output/dl_ready.%(ext)s" "${{ inputs.youtube_url }}"
           else
-            # Flexible format selection: looks for best quality up to requested resolution
-            # then merges into a single mp4 file automatically
-            yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}]+bestaudio/best[height<=${{ inputs.quality }}]/best" -o "output/dl_ready.mp4" "${{ inputs.youtube_url }}"
+            yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/dl_ready.mp4" "${{ inputs.youtube_url }}"
           fi
 
-      - name: Filebin ASAP Upload
+      - name: Filebin Direct Signal Upload
         run: |
           FILE_PATH=$(find output -type f | head -n 1)
           FILENAME=$(basename "$FILE_PATH")
           BIN_ID=$(openssl rand -hex 6)
           LINK="https://filebin.net/$BIN_ID/$FILENAME"
           
-          # Binary Upload
+          # Binary Upload to Filebin
           curl -X POST --data-binary @"$FILE_PATH" "$LINK"
           
           # IMMEDIATE SIGNAL TO WEBHOOK.SITE
+          # We add a 1s delay to ensure the file is indexed before the signal hits the UI
+          sleep 1
           curl -X POST -d "$LINK" "${{ inputs.webhook_url }}"
           
           echo "SIGNAL_SUCCESS: $LINK"
