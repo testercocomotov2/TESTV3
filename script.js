@@ -1,5 +1,5 @@
 /**
- * SGYT Engine V34 - Bot-Bypass + Input Sync
+ * SGYT Engine V35 - Client-Sync Fix
  * User: SlayerGamerYT
  * Domain: sgyt.is-best.net
  */
@@ -46,7 +46,7 @@ async function triggerAction() {
 
     btn.disabled = true;
     document.getElementById('downloadArea').style.display = 'none';
-    log("Igniting Engine V34 (Bypassing Bot Check)...", "log-info");
+    log("Igniting Engine V35 (Fixing Format Error)...", "log-info");
 
     try {
         const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
@@ -64,7 +64,7 @@ async function triggerAction() {
         });
 
         if (response.status === 204) {
-            log("Backend started. Waiting for Webhook Signal...", "log-success");
+            log("Backend Live. Sniping link via Webhook...", "log-success");
             startSignalListener();
         } else {
             const err = await response.json();
