@@ -22,7 +22,7 @@ jobs:
 
       - name: Install Tools
         run: |
-          brew install ffmpeg deno jq
+          brew install ffmpeg deno
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
 
@@ -51,40 +51,30 @@ jobs:
             yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
           fi
 
-      - name: Upload to GoFile (Private)
+      - name: Private Upload (Catbox)
         run: |
-          # Use find to get the file to avoid shell expansion issues with special characters
           FILE_PATH=$(find output -type f | head -n 1)
           FILENAME=$(basename "$FILE_PATH")
           echo "Uploading: $FILENAME"
           
-          # 1. Get the best server with error handling
-          SERVER_DATA=$(curl -s https://api.gofile.io/getServer)
-          SERVER=$(echo "$SERVER_DATA" | jq -r '.data.server // empty')
+          # Catbox.moe is simpler and more stable than GoFile
+          # It handles special characters in filenames automatically
+          DOWNLOAD_LINK=$(curl -F "reqtype=fileupload" -F "fileToUpload=@$FILE_PATH" https://catbox.moe/user/api.php)
           
-          if [ -z "$SERVER" ]; then
-            echo "Error: Could not get GoFile server. Response: $SERVER_DATA"
-            exit 1
-          fi
-          
-          # 2. Upload with specific multipart form handling
-          echo "Uploading to server: $SERVER"
-          UPLOAD_RESPONSE=$(curl -F "file=@$FILE_PATH" "https://$SERVER.gofile.io/uploadFile")
-          
-          # 3. Extract Link
-          DOWNLOAD_LINK=$(echo "$UPLOAD_RESPONSE" | jq -r '.data.downloadPage // empty')
-          
-          if [ -z "$DOWNLOAD_LINK" ] || [ "$DOWNLOAD_LINK" == "null" ]; then
-            echo "Upload failed. Response: $UPLOAD_RESPONSE"
+          if [[ $DOWNLOAD_LINK == http* ]]; then
+            echo "--------------------------------------------------"
+            echo "PRIVATE DOWNLOAD LINK: $DOWNLOAD_LINK"
+            echo "--------------------------------------------------"
+            
+            # Post to GitHub Summary for easy one-tap access on Android
+            echo "### 🚀 SlayerGamerYT: Download Ignited!" >> $GITHUB_STEP_SUMMARY
+            echo "File: **$FILENAME**" >> $GITHUB_STEP_SUMMARY
+            echo "[Click here to Download]($DOWNLOAD_LINK)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Upload Failed: $DOWNLOAD_LINK"
             exit 1
           fi
 
-          echo "--------------------------------------------------"
-          echo "PRIVATE DOWNLOAD LINK: $DOWNLOAD_LINK"
-          echo "--------------------------------------------------"
-          
-          # Add to GitHub Step Summary for easy one-click access
-          echo "### 🚀 SlayerGamerYT: Your Download is Ready!" >> $GITHUB_STEP_SUMMARY
-          echo "Your file **$FILENAME** has been uploaded privately." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "[Click here to Download]($DOWNLOAD_LINK)" >> $GITHUB_STEP_SUMMARY
+      - name: Self-Destruct Workspace
+        if: always()
+        run: rm -rf output raw.txt final_cookies.txt
