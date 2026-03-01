@@ -6,8 +6,9 @@
     <title>Standalone YT Converter</title>
     
     <style>
+        * { box-sizing: border-box; }
         body {
-            background-color: #121212; 
+            background-color: #0f0f0f; 
             color: #ffffff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex; 
@@ -18,76 +19,119 @@
             margin: 0;
         }
         .container {
-            background: #1e1e1e; 
+            background: #1f1f1f; 
             padding: 40px; 
             border-radius: 12px;
             width: 90%; 
-            max-width: 450px; 
-            box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+            max-width: 500px; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+            border: 1px solid #333;
             text-align: center;
         }
         h1 { 
             color: #ff0000; 
             margin-top: 0; 
             margin-bottom: 5px;
+            font-size: 28px;
         }
-        p {
+        p.subtitle {
             color: #aaaaaa;
-            margin-bottom: 25px;
+            margin-bottom: 30px;
             font-size: 14px;
         }
         input[type="text"] {
-            width: calc(100% - 30px); 
-            padding: 15px; 
+            width: 100%; 
+            padding: 16px; 
             margin-bottom: 20px;
             background: #2a2a2a; 
             border: 1px solid #444; 
             color: white; 
-            border-radius: 6px;
+            border-radius: 8px;
             font-size: 16px;
+            transition: border 0.3s;
         }
         input[type="text"]:focus {
             outline: none;
             border-color: #ff0000;
         }
-        .radio-group {
+        .options {
             display: flex;
             justify-content: center;
-            gap: 20px;
+            gap: 25px;
             margin-bottom: 25px;
+        }
+        .options label {
+            cursor: pointer;
             color: #cccccc;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        input[type="radio"] {
+            accent-color: #ff0000;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
         }
         button {
             width: 100%; 
-            padding: 15px; 
+            padding: 16px; 
             background: #ff0000; 
             color: white;
             border: none; 
-            border-radius: 6px; 
+            border-radius: 8px; 
             font-weight: bold; 
-            font-size: 16px;
+            font-size: 18px;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: background 0.2s, transform 0.1s;
         }
         button:hover { 
             background: #cc0000; 
         }
-        #statusMessage {
+        button:active {
+            transform: scale(0.98);
+        }
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+            transform: none;
+        }
+        #statusArea {
             margin-top: 20px;
+            min-height: 24px;
+            font-size: 15px;
             font-weight: bold;
-            min-height: 20px;
+        }
+        #resultArea {
+            margin-top: 20px;
+        }
+        .download-btn {
+            display: inline-block; 
+            width: 100%;
+            padding: 16px; 
+            background: #28a745; 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 8px; 
+            font-weight: bold;
+            font-size: 18px;
+            transition: background 0.2s;
+        }
+        .download-btn:hover {
+            background: #218838;
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>YT Fast Downloader</h1>
-        <p>100% Uptime • Zero Setup</p>
+        <h1>YT Converter V3</h1>
+        <p class="subtitle">Bypassing Authentication • Decentralized Network</p>
 
         <input type="text" id="videoUrl" placeholder="Paste YouTube link here..." autocomplete="off">
         
-        <div class="radio-group">
+        <div class="options">
             <label>
                 <input type="radio" name="format" value="video" checked> Video (MP4)
             </label>
@@ -96,43 +140,103 @@
             </label>
         </div>
 
-        <button onclick="processDownload()">Download Now</button>
+        <button id="convertBtn" onclick="startConversion()">Convert File</button>
 
-        <div id="statusMessage"></div>
+        <div id="statusArea"></div>
+        <div id="resultArea"></div>
     </div>
 
     <script>
-        function processDownload() {
+        // We use an array of unlocked community servers that DO NOT require JWT passwords.
+        // If one is busy, the script automatically jumps to the next one.
+        const UNLOCKED_APIS = [
+            "https://api.cobalt.best/",
+            "https://cobalt.q-n-d.de/",
+            "https://co.wuk.sh/"
+        ];
+
+        async function startConversion() {
             const urlInput = document.getElementById('videoUrl').value.trim();
-            const statusEl = document.getElementById('statusMessage');
+            const isAudio = document.querySelector('input[name="format"][value="audio"]').checked;
+            const statusEl = document.getElementById('statusArea');
+            const resultEl = document.getElementById('resultArea');
+            const btn = document.getElementById('convertBtn');
+
+            // Reset UI
+            resultEl.innerHTML = "";
+            statusEl.innerText = "";
             
-            // 1. Simple Validation
-            if (!urlInput.includes('youtu')) {
+            if (!urlInput.match(/youtu\.?be/i) && !urlInput.match(/youtube\.com/i)) {
                 statusEl.innerText = "Error: Please enter a valid YouTube link.";
                 statusEl.style.color = "#ff4444";
                 return;
             }
 
-            // 2. Check format selection
-            const isAudio = document.querySelector('input[name="format"][value="audio"]').checked;
+            btn.disabled = true;
+            statusEl.innerText = "Connecting to unlocked servers...";
+            statusEl.style.color = "#ffcc00";
 
-            // 3. Update UI
-            statusEl.innerText = "Redirecting to secure download server...";
-            statusEl.style.color = "#28a745";
+            const payload = {
+                url: urlInput,
+                videoQuality: "720",
+                downloadMode: isAudio ? "audio" : "auto",
+                audioFormat: "mp3"
+            };
 
-            // 4. Construct the redirect URL (Bypasses all browser CORS blocks)
-            let processorUrl = `https://cobalt.tools/?u=${encodeURIComponent(urlInput)}`;
-            if (isAudio) {
-                processorUrl += `&a=true`;
+            let success = false;
+
+            // Loop through the unlocked APIs until we get a successful download link
+            for (let i = 0; i < UNLOCKED_APIS.length; i++) {
+                const apiUrl = UNLOCKED_APIS[i];
+                statusEl.innerText = `Trying Server ${i + 1}...`;
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: "POST",
+                        headers: {
+                            "Accept": "application/json",
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) continue; // If server is busy, skip to the next one
+
+                    const data = await response.json();
+
+                    if (data.url) {
+                        // Success!
+                        statusEl.innerText = "Conversion Successful!";
+                        statusEl.style.color = "#28a745";
+                        
+                        resultEl.innerHTML = `
+                            <a href="${data.url}" class="download-btn" target="_blank">
+                                ⬇ Download ${isAudio ? 'MP3' : 'MP4'}
+                            </a>
+                        `;
+                        success = true;
+                        break; // Stop the loop
+                    }
+                } catch (error) {
+                    // Network error, simply continue to the next API in the list
+                    console.warn(`Server ${apiUrl} failed.`);
+                }
             }
 
-            // 5. Open processor in new tab
-            setTimeout(() => {
-                window.open(processorUrl, '_blank');
-                statusEl.innerText = ""; // Reset status
-                document.getElementById('videoUrl').value = ""; // Clear input
-            }, 1000);
+            if (!success) {
+                statusEl.innerText = "All public servers are currently busy. Try again later.";
+                statusEl.style.color = "#ff4444";
+            }
+
+            btn.disabled = false;
         }
+
+        // Allow pressing "Enter" to start
+        document.getElementById('videoUrl').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                startConversion();
+            }
+        });
     </script>
 
 </body>
