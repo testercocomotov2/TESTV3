@@ -1,111 +1,94 @@
-/**
- * SGYT Engine V37 - Loader.fo UI Edition
- * User: SlayerGamerYT
- */
-
 const REPO_OWNER = "testercocomotov2";
 const REPO_NAME = "TESTV3";
 const WORKFLOW_FILE = "downloader.yml";
 const BRANCH = "main"; 
 const WEBHOOK_TOKEN = "1a9bc849-a393-458c-86a8-4d78aa4bb7af";
+const SIGNAL_URL = `https://webhook.site/${WEBHOOK_TOKEN}`;
 const POLL_API = `https://webhook.site/token/${WEBHOOK_TOKEN}/requests?sorting=newest`;
 
-// UI Elements
-const btn = document.getElementById('startBtn');
-const terminal = document.getElementById('terminal');
-const downloadArea = document.getElementById('downloadArea');
-const artifactLink = document.getElementById('artifactLink');
+// UI Setup
+window.onload = () => {
+    const saved = localStorage.getItem('gh_pat');
+    if (saved) document.getElementById('ghToken').value = saved;
+};
 
-function log(msg, isError = false) {
+function saveToken() {
+    localStorage.setItem('gh_pat', document.getElementById('ghToken').value.trim());
+}
+
+function log(msg, type = '') {
+    const term = document.getElementById('terminal');
     const p = document.createElement('p');
-    if (isError) p.style.color = "#ff4d4d";
+    if (type === 'error') p.style.color = '#ff4d4d';
     p.textContent = `> ${msg}`;
-    terminal.prepend(p); // Newest on top to prevent scrolling lag
-    if (terminal.children.length > 5) terminal.lastChild.remove(); // Keep it light
+    term.prepend(p);
+    if (term.children.length > 5) term.lastChild.remove();
 }
 
 async function triggerAction() {
     const token = document.getElementById('ghToken').value.trim();
     const url = document.getElementById('ytUrl').value.trim();
-    const format = document.getElementById('mode').value;
+    const mode = document.getElementById('mode').value;
     const quality = document.getElementById('quality').value;
+    const btn = document.getElementById('startBtn');
 
-    if (!token || !url) {
-        log("Missing API Token or URL", true);
-        return;
-    }
+    if (!token || !url) { log("Missing URL or Token!", "error"); return; }
 
-    // Set Loading State
     btn.disabled = true;
     btn.textContent = "Processing...";
-    downloadArea.style.display = 'none';
-    log("Igniting Backend...");
+    document.getElementById('downloadArea').style.display = 'none';
+    log("Igniting SGYT Backend...");
 
     try {
-        const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
+        const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
             method: 'POST',
-            headers: { 
-                'Authorization': `Bearer ${token}`, 
-                'Accept': 'application/vnd.github.v3+json', 
-                'Content-Type': 'application/json' 
-            },
+            headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 ref: BRANCH, 
-                inputs: { 
-                    youtube_url: url, 
-                    format: format, 
-                    quality: quality, 
-                    webhook_url: `https://webhook.site/${WEBHOOK_TOKEN}` 
-                } 
+                inputs: { youtube_url: url, format: mode, quality: quality, webhook_url: SIGNAL_URL } 
             })
         });
 
-        if (response.status === 204) {
+        if (res.status === 204) {
             log("Engine Live. Hunting for signal...");
-            pollForSignal();
+            huntSignal();
         } else {
-            const err = await response.json();
-            throw new Error(err.message || "Launch Failed");
+            throw new Error("GitHub rejected launch.");
         }
     } catch (e) {
-        log(e.message, true);
+        log(e.message, "error");
         btn.disabled = false;
         btn.textContent = "Download";
     }
 }
 
-async function pollForSignal() {
+async function huntSignal() {
     try {
         const res = await fetch(POLL_API);
         const json = await res.json();
         
         if (json.data && json.data.length > 0) {
-            // Check top 3 signals for the filebin link
             for (let i = 0; i < Math.min(json.data.length, 3); i++) {
                 const content = json.data[i].content;
                 if (content && content.includes("filebin.net")) {
-                    showDownload(content.trim());
-                    return; // Signal found, stop polling
+                    finishDownload(content.trim());
+                    return;
                 }
             }
         }
-        
-        // Signal not found yet, wait 2s and try again (Non-blocking)
-        setTimeout(pollForSignal, 2000);
-        
+        // Signal not found, wait 2s and try again (Asynchronous)
+        setTimeout(huntSignal, 2000);
     } catch (e) {
-        console.warn("Retrying signal sync...");
-        setTimeout(pollForSignal, 3000);
+        setTimeout(huntSignal, 3000);
     }
 }
 
-function showDownload(url) {
-    log("Signal captured! File ready.");
+function finishDownload(url) {
+    const btn = document.getElementById('startBtn');
+    log("Link Captured! Enjoy.");
     btn.disabled = false;
-    btn.textContent = "Start New Download";
-    
-    artifactLink.href = url;
-    downloadArea.style.display = 'block';
-    
+    btn.textContent = "Download Next";
+    document.getElementById('artifactLink').href = url;
+    document.getElementById('downloadArea').style.display = 'block';
     if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
 }
