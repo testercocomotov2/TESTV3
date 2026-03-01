@@ -14,7 +14,7 @@ on:
 
 jobs:
   download_and_convert:
-    runs-runs-on: macos-latest
+    runs-on: macos-latest # FIXED: removed the double 'runs-runs-on' typo
 
     steps:
       - name: Checkout Repository
@@ -45,7 +45,6 @@ jobs:
       - name: Execute Download
         run: |
           mkdir output
-          # Spoofing as mobile to reduce bot detection
           FLAGS="--cookies final_cookies.txt --extractor-args youtube:client=ios,android,tv"
           
           if [ "${{ inputs.format }}" == "audio" ]; then
