@@ -1,90 +1,144 @@
-// --- 1. DEBUGGER SETUP ---
-const consoleEl = document.getElementById('debugConsole');
+// Configuration for SlayerGamerYT's Engine
+const REPO_OWNER = "testercocomotov2";
+const REPO_NAME = "TESTV3";
+const WORKFLOW_FILE = "downloader.yml";
 
-function logToScreen(msg, type = 'info') {
-    const p = document.createElement('p');
-    p.className = `log-${type}`;
-    // Add timestamp to logs
-    const time = new Date().toLocaleTimeString();
-    p.textContent = `[${time}] > ${msg}`;
-    consoleEl.appendChild(p);
-    consoleEl.scrollTop = consoleEl.scrollHeight; // Auto-scroll to bottom
-}
-
-// Catch unhandled global browser errors
-window.onerror = function(message, source, lineno, colno, error) {
-    logToScreen(`FATAL BROWSER ERROR: ${message} at line ${lineno}`, 'error');
-    return true;
+// Load saved token from browser storage on startup
+window.onload = () => {
+    const saved = localStorage.getItem('gh_pat');
+    if (saved) {
+        document.getElementById('ghToken').value = saved;
+    }
 };
 
-// Catch unhandled promise rejections (like failed fetches)
-window.addEventListener('unhandledrejection', function(event) {
-    logToScreen(`UNHANDLED PROMISE: ${event.reason}`, 'error');
-});
+// Save token locally so you don't have to paste it every time
+function saveToken() {
+    const token = document.getElementById('ghToken').value.trim();
+    localStorage.setItem('gh_pat', token);
+}
 
+function log(msg, type = '') {
+    const term = document.getElementById('terminal');
+    const p = document.createElement('p');
+    if (type) p.className = type;
+    p.textContent = `> ${msg}`;
+    term.appendChild(p);
+    term.scrollTop = term.scrollHeight;
+}
 
-// --- 2. API LOGIC ---
-document.getElementById('convertBtn').addEventListener('click', async () => {
-    const url = document.getElementById('urlInput').value.trim();
-    const downloadArea = document.getElementById('download-area');
-    
-    downloadArea.innerHTML = ""; // Clear old buttons
+async function triggerAction() {
+    const token = document.getElementById('ghToken').value.trim();
+    const url = document.getElementById('ytUrl').value.trim();
+    const format = document.querySelector('input[name="format"]:checked').value;
+    const btn = document.getElementById('startBtn');
+    const downloadArea = document.getElementById('downloadArea');
 
-    if (!url) {
-        logToScreen("Validation failed: No URL entered.", 'warn');
+    if (!token || !url) {
+        log("Error: Token and URL are required.", "log-error");
         return;
     }
 
-    logToScreen(`Starting process for URL: ${url}`, 'info');
+    // Reset UI for new run
+    btn.disabled = true;
+    downloadArea.style.display = 'none';
+    log("Connecting to GitHub API...", "log-info");
+
+    const dispatchUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`;
 
     try {
-        logToScreen("Preparing payload for Cobalt v10 API...", 'info');
-        
-        const payload = {
-            url: url,
-            videoQuality: "720"
-        };
-
-        logToScreen("Initiating fetch() request to https://api.cobalt.tools/ ...", 'warn');
-
-        // Execute the fetch
-        const response = await fetch("https://api.cobalt.tools/", {
-            method: "POST",
+        const response = await fetch(dispatchUrl, {
+            method: 'POST',
             headers: {
-                "Accept": "application/json",
-                "Content-Type": "application/json"
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({
+                ref: 'main',
+                inputs: { youtube_url: url, format: format }
+            })
         });
 
-        logToScreen(`Fetch completed. HTTP Status: ${response.status}`, 'info');
-
         if (!response.ok) {
-            logToScreen(`HTTP Error Detected. Status code is not 2xx.`, 'error');
-            const errorText = await response.text();
-            logToScreen(`Server response body: ${errorText}`, 'error');
-            throw new Error(`HTTP ${response.status}`);
+            throw new Error(`Auth Failed (HTTP ${response.status}). Check your Token.`);
         }
 
-        const data = await response.json();
-        logToScreen("JSON parsed successfully.", 'success');
-
-        if (data.status === "error") {
-            logToScreen(`API returned an error state: ${data.text}`, 'error');
-        } else if (data.url) {
-            logToScreen(`Success! Download URL generated.`, 'success');
-            downloadArea.innerHTML = `<a href="${data.url}" target="_blank">⬇ Click to Download</a>`;
-        } else {
-            logToScreen(`Unexpected API response structure. Data: ${JSON.stringify(data)}`, 'warn');
-        }
+        log("Engine Ignited! Linux/Mac runner is starting...", "log-success");
+        log("Waiting for backend to process media (approx 1-2 mins)...");
+        
+        // Start polling for the result
+        setTimeout(() => trackProgress(token), 10000);
 
     } catch (error) {
-        logToScreen(`CATCH BLOCK TRIGGERED: ${error.name} - ${error.message}`, 'error');
-        
-        // Specific check for CORS / Network errors
-        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-            logToScreen("DIAGNOSIS: This is a CORS block or your network is blocking the request.", 'error');
-            logToScreen("Check if you have an AdBlocker (like uBlock Origin or Brave Shields) blocking the API.", 'warn');
-        }
+        log(error.message, "log-error");
+        btn.disabled = false;
     }
-});
+}
+
+async function trackProgress(token) {
+    const runsUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/runs?per_page=1`;
+    let attempts = 0;
+    const maxAttempts = 60; // Poll for 10 minutes max
+
+    const checkInterval = setInterval(async () => {
+        attempts++;
+        try {
+            const res = await fetch(runsUrl, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            
+            if (data.workflow_runs && data.workflow_runs.length > 0) {
+                const run = data.workflow_runs[0];
+                
+                if (run.status === 'completed') {
+                    clearInterval(checkInterval);
+                    document.getElementById('startBtn').disabled = false;
+                    
+                    if (run.conclusion === 'success') {
+                        log("Conversion Complete! Fetching download link...", "log-success");
+                        fetchArtifactLink(token, run.artifacts_url);
+                    } else {
+                        log("Engine crashed. Check your cookies or YT link.", "log-error");
+                    }
+                } else {
+                    log(`Processing... (Status: ${run.status})`);
+                }
+            }
+        } catch (e) {
+            console.error("Polling error:", e);
+        }
+
+        if (attempts >= maxAttempts) {
+            clearInterval(checkInterval);
+            log("Timeout: Action is taking too long.", "log-error");
+            document.getElementById('startBtn').disabled = false;
+        }
+    }, 10000); // Check every 10 seconds
+}
+
+async function fetchArtifactLink(token, artifactsUrl) {
+    try {
+        const res = await fetch(artifactsUrl, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        
+        if (data.artifacts && data.artifacts.length > 0) {
+            // This is the direct link to the zip file artifact
+            const artifactId = data.artifacts[0].id;
+            const downloadUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/actions/artifacts/${artifactId}`;
+            
+            const linkBtn = document.getElementById('artifactLink');
+            linkBtn.href = downloadUrl;
+            linkBtn.textContent = "⬇ Download Your Media (Zip)";
+            document.getElementById('downloadArea').style.display = 'block';
+            
+            log("Download link generated successfully!", "log-success");
+        } else {
+            log("Error: No artifact found in successful run.", "log-error");
+        }
+    } catch (e) {
+        log("Failed to retrieve final link.", "log-error");
+    }
+}
