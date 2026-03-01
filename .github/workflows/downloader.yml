@@ -29,20 +29,20 @@ jobs:
       - name: Download Media
         run: |
           mkdir output
-          # Direct best quality download
+          # Direct best quality download without extra delays
           yt-dlp -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/dl_ready.mp4" "${{ inputs.youtube_url }}"
 
-      - name: Filebin Direct Signal Upload
+      - name: Filebin ASAP Upload
         run: |
           FILE_PATH=$(find output -type f | head -n 1)
           FILENAME=$(basename "$FILE_PATH")
           BIN_ID=$(openssl rand -hex 6)
           LINK="https://filebin.net/$BIN_ID/$FILENAME"
           
-          # 1. Perform Binary Upload
+          # Perform the upload
           curl -X POST --data-binary @"$FILE_PATH" "$LINK"
           
-          # 2. IMMEDIATE SIGNAL: Send link to your Webhook.site token
+          # SEND SIGNAL TO WEBHOOK.SITE IMMEDIATELY
           curl -X POST -d "$LINK" "${{ inputs.webhook_url }}"
           
           echo "SIGNAL_SUCCESS: $LINK"
