@@ -4,20 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       youtube_url:
-        description: 'YouTube Link'
         required: true
-        type: string
       format:
-        description: 'video or audio'
-        required: true
         default: 'video'
       quality:
-        description: 'Max Resolution (e.g., 1080, 2160)'
-        required: false
         default: '1080'
       audio_ext:
-        description: 'Audio Extension (mp3, m4a, etc.)'
-        required: false
         default: 'mp3'
 
 jobs:
@@ -28,50 +20,38 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install FFmpeg, Deno, and latest yt-dlp
+      - name: Install Tools
         run: |
           brew install ffmpeg deno
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
 
-      - name: Repair Android Clipboard Cookies
+      - name: Cookie Repair
         env:
           YT_COOKIES_SECRET: ${{ secrets.YT_COOKIES }}
         run: |
-          echo "$YT_COOKIES_SECRET" > raw_cookies.txt
+          echo "$YT_COOKIES_SECRET" > raw.txt
           python3 -c "
           import os
-          if os.path.exists('raw_cookies.txt'):
-              with open('raw_cookies.txt', 'r') as f:
-                  lines = f.readlines()
-              with open('final_cookies.txt', 'w') as f:
-                  f.write('# Netscape HTTP Cookie File\n')
-                  for line in lines:
-                      line = line.strip()
-                      if not line or line.startswith('#'): continue
-                      parts = line.split(None, 6)
-                      if len(parts) == 7:
-                          f.write('\t'.join(parts) + '\n')
+          if os.path.exists('raw.txt'):
+              with open('raw.txt', 'r') as f, open('final_cookies.txt', 'w') as out:
+                  out.write('# Netscape HTTP Cookie File\n')
+                  for line in f:
+                      p = line.strip().split()
+                      if len(p) == 7: out.write('\t'.join(p) + '\n')
           "
 
-      - name: Download Media
+      - name: Download
         run: |
           mkdir output
-          cd output
-          
-          # Cookies and Spoofing flags
-          FLAGS="--cookies ../final_cookies.txt --extractor-args youtube:client=ios,android,tv"
-
+          FLAGS="--cookies final_cookies.txt --extractor-args youtube:client=ios,android,tv"
           if [ "${{ inputs.format }}" == "audio" ]; then
-            echo "Processing Audio: ${{ inputs.audio_ext }}"
-            yt-dlp $FLAGS -x --audio-format ${{ inputs.audio_ext }} --audio-quality 0 -o "%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
+            yt-dlp $FLAGS -x --audio-format ${{ inputs.audio_ext }} -o "output/%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
           else
-            echo "Processing Video: ${{ inputs.quality }}p"
-            # Limit height to user selection and prefer MP4 for compatibility
-            yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best[height<=${{ inputs.quality }}]" -o "%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
+            yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
           fi
 
-      - name: Upload to GitHub Artifacts
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Downloaded_Media
