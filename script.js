@@ -1,5 +1,5 @@
 /**
- * SGYT Engine V25 - 2s Turbo Polling
+ * SGYT Engine V26 - Turbo Logic + PixelDrain Stable
  * User: SlayerGamerYT
  * Domain: sgyt.is-best.net
  */
@@ -13,6 +13,10 @@ window.onload = () => {
     const saved = localStorage.getItem('gh_pat');
     if (saved) document.getElementById('ghToken').value = saved;
 };
+
+function saveToken() {
+    localStorage.setItem('gh_pat', document.getElementById('ghToken').value.trim());
+}
 
 function log(msg, type = '') {
     const term = document.getElementById('terminal');
@@ -37,7 +41,7 @@ async function triggerAction() {
 
     btn.disabled = true;
     document.getElementById('downloadArea').style.display = 'none';
-    log("Igniting Engine V25...", "log-info");
+    log("Igniting Engine V26...", "log-info");
 
     try {
         const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
@@ -54,7 +58,7 @@ async function triggerAction() {
         });
 
         if (response.status === 204) {
-            log("Backend Live. Polling every 2s...", "log-success");
+            log("Backend Live. 2s Polling Active...", "log-success");
             turboTrack(token);
         } else {
             const err = await response.json();
@@ -68,27 +72,18 @@ async function triggerAction() {
 
 async function turboTrack(token) {
     let linkFound = false;
-    let runId = null;
-
     const interval = setInterval(async () => {
         if (linkFound) return;
 
         try {
-            // Get the latest run
             const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/runs?per_page=1`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
             const run = data.workflow_runs[0];
 
-            if (!run || run.status === 'queued') {
-                console.log("Waiting in queue...");
-                return;
-            }
+            if (!run || run.status === 'queued') return;
 
-            runId = run.id;
-
-            // Fetch job logs even if 'in_progress'
             const jobsRes = await fetch(run.jobs_url, { headers: { 'Authorization': `Bearer ${token}` } });
             const jobsData = await jobsRes.json();
             const job = jobsData.jobs[0];
@@ -99,8 +94,8 @@ async function turboTrack(token) {
                 });
                 const logContent = await logsRes.text();
                 
-                // Sniper Regex for TmpFiles
-                const match = logContent.match(/https:\/\/tmpfiles\.org\/dl\/\d+\/[^\s"]+/);
+                // Optimized regex to find the PixelDrain or TmpFiles URL
+                const match = logContent.match(/https:\/\/(pixeldrain\.com|tmpfiles\.org)\/(u|dl)\/[^\s"]+/);
                 
                 if (match) {
                     linkFound = true;
@@ -114,16 +109,15 @@ async function turboTrack(token) {
                     document.getElementById('downloadArea').style.display = 'block';
                     document.getElementById('startBtn').disabled = false;
                 } else {
-                    // Update terminal status without flooding it
-                    console.log("Checking logs: " + run.status);
+                    console.log("2s Polling: Scanning logs...");
                 }
 
                 if (run.status === 'completed' && !linkFound) {
                     clearInterval(interval);
-                    log("Process finished. No link found.", "log-error");
+                    log("Process finished. No link found in logs.", "log-error");
                     document.getElementById('startBtn').disabled = false;
                 }
             }
-        } catch (e) { console.error("Polling error..."); }
-    }, 2000); // 2-second turbo poll
+        } catch (e) { console.warn("Polling Sync Issue..."); }
+    }, 2000); // 2-second polling as requested
 }
