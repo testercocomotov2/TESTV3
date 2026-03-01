@@ -25,7 +25,8 @@ jobs:
           brew install ffmpeg deno
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
-          pip3 install pusher
+          # Flag added to bypass macOS Python security lock
+          pip3 install pusher --break-system-packages
 
       - name: Cookie Authentication
         env:
