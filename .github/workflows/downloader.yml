@@ -1,0 +1,52 @@
+name: YT Downloader Engine
+
+# This allows you to trigger the workflow manually from the GitHub website
+on:
+  workflow_dispatch:
+    inputs:
+      youtube_url:
+        description: 'Paste the YouTube Link'
+        required: true
+        type: string
+      format:
+        description: 'Download Format'
+        required: true
+        default: 'video'
+        type: choice
+        options:
+          - video
+          - audio
+
+jobs:
+  download_and_convert:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install FFmpeg and yt-dlp
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python3 -m pip install -U yt-dlp
+
+      - name: Download Media
+        run: |
+          mkdir output
+          cd output
+          
+          if [ "${{ inputs.format }}" == "audio" ]; then
+            echo "Downloading Audio..."
+            yt-dlp -x --audio-format mp3 --audio-quality 0 -o "%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
+          else
+            echo "Downloading Video..."
+            yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
+          fi
+
+      - name: Upload to GitHub Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Downloaded_Media
+          path: output/*
+          retention-days: 1 # Deletes the file after 1 day to save your GitHub storage limits
