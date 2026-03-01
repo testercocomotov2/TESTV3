@@ -1,7 +1,7 @@
 /**
- * SGYT Engine V20 - Input Sync Patch
+ * SGYT Engine V21 - Cookie & Runtime Patch
  * User: SlayerGamerYT
- * Domain: sgyt.is-best.net
+ * Repo: testercocomotov2/TESTV3
  */
 
 const REPO_OWNER = "testercocomotov2";
@@ -41,7 +41,7 @@ async function triggerAction() {
 
     btn.disabled = true;
     document.getElementById('downloadArea').style.display = 'none';
-    log("Igniting Engine...", "log-info");
+    log("Engine Ignited!", "log-info");
 
     try {
         const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
@@ -57,13 +57,13 @@ async function triggerAction() {
                     youtube_url: url, 
                     format: mode, 
                     quality: quality,
-                    audio_ext: "mp3" // Added to match the YAML input
+                    audio_ext: "mp3" 
                 } 
             })
         });
 
         if (response.status === 204) {
-            log("Backend processing. Live monitoring active.", "log-success");
+            log("Backend processing. Bypassing bot detection...", "log-success");
             trackLiveLogs(token);
         } else {
             const err = await response.json();
@@ -99,7 +99,6 @@ async function trackLiveLogs(token) {
                 });
                 const logText = await logsRes.text();
                 
-                // Deep Search for the TmpFiles link
                 const match = logText.match(/https:\/\/tmpfiles\.org\/dl\/\S+/);
                 
                 if (match) {
@@ -114,7 +113,7 @@ async function trackLiveLogs(token) {
                     document.getElementById('startBtn').disabled = false;
                 } else if (run.status === 'completed' && run.conclusion !== 'success') {
                     clearInterval(interval);
-                    log("Engine Crash. Check YouTube Cookies/URL.", "log-error");
+                    log("Engine Crash: Bot Detection or Cookie Error.", "log-error");
                     document.getElementById('startBtn').disabled = false;
                 }
             }
