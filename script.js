@@ -1,125 +1,111 @@
 /**
- * SGYT Engine V36 - Signal Hunter (Turbo)
+ * SGYT Engine V37 - Loader.fo UI Edition
  * User: SlayerGamerYT
- * Domain: sgyt.is-best.net
  */
 
 const REPO_OWNER = "testercocomotov2";
 const REPO_NAME = "TESTV3";
 const WORKFLOW_FILE = "downloader.yml";
 const BRANCH = "main"; 
-
-// YOUR UNIQUE WEBHOOK TOKEN
 const WEBHOOK_TOKEN = "1a9bc849-a393-458c-86a8-4d78aa4bb7af";
-const SIGNAL_URL = `https://webhook.site/${WEBHOOK_TOKEN}`;
 const POLL_API = `https://webhook.site/token/${WEBHOOK_TOKEN}/requests?sorting=newest`;
 
-window.onload = () => {
-    const saved = localStorage.getItem('gh_pat');
-    if (saved) document.getElementById('ghToken').value = saved;
-};
+// UI Elements
+const btn = document.getElementById('startBtn');
+const terminal = document.getElementById('terminal');
+const downloadArea = document.getElementById('downloadArea');
+const artifactLink = document.getElementById('artifactLink');
 
-function saveToken() {
-    localStorage.setItem('gh_pat', document.getElementById('ghToken').value.trim());
-}
-
-function log(msg, type = '') {
-    const term = document.getElementById('terminal');
+function log(msg, isError = false) {
     const p = document.createElement('p');
-    if (type) p.className = type;
-    p.innerHTML = `[${new Date().toLocaleTimeString()}] > ${msg}`;
-    term.appendChild(p);
-    term.scrollTop = term.scrollHeight;
+    if (isError) p.style.color = "#ff4d4d";
+    p.textContent = `> ${msg}`;
+    terminal.prepend(p); // Newest on top to prevent scrolling lag
+    if (terminal.children.length > 5) terminal.lastChild.remove(); // Keep it light
 }
 
 async function triggerAction() {
     const token = document.getElementById('ghToken').value.trim();
     const url = document.getElementById('ytUrl').value.trim();
-    const mode = document.getElementById('mode').value;
+    const format = document.getElementById('mode').value;
     const quality = document.getElementById('quality').value;
-    const btn = document.getElementById('startBtn');
 
     if (!token || !url) {
-        log("Error: Token/URL missing.", "log-error");
+        log("Missing API Token or URL", true);
         return;
     }
 
+    // Set Loading State
     btn.disabled = true;
-    document.getElementById('downloadArea').style.display = 'none';
-    log("Engine Ignited. Bypassing Bot Check...", "log-info");
+    btn.textContent = "Processing...";
+    downloadArea.style.display = 'none';
+    log("Igniting Backend...");
 
     try {
         const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+            headers: { 
+                'Authorization': `Bearer ${token}`, 
+                'Accept': 'application/vnd.github.v3+json', 
+                'Content-Type': 'application/json' 
+            },
             body: JSON.stringify({ 
                 ref: BRANCH, 
                 inputs: { 
                     youtube_url: url, 
-                    format: mode, 
+                    format: format, 
                     quality: quality, 
-                    webhook_url: SIGNAL_URL 
+                    webhook_url: `https://webhook.site/${WEBHOOK_TOKEN}` 
                 } 
             })
         });
 
         if (response.status === 204) {
-            log("Backend Live. Signal Hunter Active...", "log-success");
-            huntSignal();
+            log("Engine Live. Hunting for signal...");
+            pollForSignal();
         } else {
             const err = await response.json();
-            throw new Error(err.message || response.status);
+            throw new Error(err.message || "Launch Failed");
         }
-    } catch (error) {
-        log("Launch Error: " + error.message, "log-error");
+    } catch (e) {
+        log(e.message, true);
         btn.disabled = false;
+        btn.textContent = "Download";
     }
 }
 
-async function huntSignal() {
-    let found = false;
-    let attempts = 0;
-    
-    const interval = setInterval(async () => {
-        if (found) return;
-        attempts++;
-
-        try {
-            const res = await fetch(POLL_API);
-            const json = await res.json();
-            
-            // Look through the last 5 requests to find our link
-            if (json.data && json.data.length > 0) {
-                for (let i = 0; i < Math.min(json.data.length, 5); i++) {
-                    const content = json.data[i].content;
-                    if (content && content.includes("filebin.net")) {
-                        found = true;
-                        clearInterval(interval);
-                        const dlUrl = content.trim();
-
-                        log("--- SIGNAL CAPTURED ---", "log-success");
-                        log(`<a href="${dlUrl}" target="_blank" style="color:#00ff00; font-weight:bold; font-size:1.1em; text-decoration:underline;">🚀 DOWNLOAD READY: CLICK HERE</a>`, "log-success");
-                        
-                        document.getElementById('artifactLink').href = dlUrl;
-                        document.getElementById('downloadArea').style.display = 'block';
-                        document.getElementById('startBtn').disabled = false;
-                        
-                        // Mobile vibration alert
-                        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-                        return;
-                    }
+async function pollForSignal() {
+    try {
+        const res = await fetch(POLL_API);
+        const json = await res.json();
+        
+        if (json.data && json.data.length > 0) {
+            // Check top 3 signals for the filebin link
+            for (let i = 0; i < Math.min(json.data.length, 3); i++) {
+                const content = json.data[i].content;
+                if (content && content.includes("filebin.net")) {
+                    showDownload(content.trim());
+                    return; // Signal found, stop polling
                 }
             }
-            
-            // Heartbeat status
-            if (attempts % 5 === 0) console.log("Hunter still searching...");
-            
-        } catch (e) { console.warn("Signal Syncing..."); }
-        
-        if (attempts > 300) { // 10 minute timeout
-            clearInterval(interval);
-            log("Signal Timeout. Backend might have failed.", "log-error");
-            document.getElementById('startBtn').disabled = false;
         }
-    }, 2000); 
+        
+        // Signal not found yet, wait 2s and try again (Non-blocking)
+        setTimeout(pollForSignal, 2000);
+        
+    } catch (e) {
+        console.warn("Retrying signal sync...");
+        setTimeout(pollForSignal, 3000);
+    }
+}
+
+function showDownload(url) {
+    log("Signal captured! File ready.");
+    btn.disabled = false;
+    btn.textContent = "Start New Download";
+    
+    artifactLink.href = url;
+    downloadArea.style.display = 'block';
+    
+    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
 }
