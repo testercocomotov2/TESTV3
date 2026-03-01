@@ -1,6 +1,5 @@
 name: YT Downloader Engine
 
-# This allows you to trigger the workflow manually from the GitHub website
 on:
   workflow_dispatch:
     inputs:
@@ -25,10 +24,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install FFmpeg and yt-dlp
+      - name: Install FFmpeg, Node.js, and yt-dlp
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          # We install nodejs so yt-dlp can solve YouTube's anti-bot math puzzles
+          sudo apt-get install -y ffmpeg nodejs
           python3 -m pip install -U yt-dlp
 
       - name: Download Media
@@ -36,12 +36,15 @@ jobs:
           mkdir output
           cd output
           
+          # ANTI-BOT SPOOFING: We tell YouTube we are an Android device, not a server.
+          SPOOF_FLAGS="--extractor-args youtube:client=android,tv,web"
+
           if [ "${{ inputs.format }}" == "audio" ]; then
             echo "Downloading Audio..."
-            yt-dlp -x --audio-format mp3 --audio-quality 0 -o "%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
+            yt-dlp $SPOOF_FLAGS -x --audio-format mp3 --audio-quality 0 -o "%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
           else
             echo "Downloading Video..."
-            yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
+            yt-dlp $SPOOF_FLAGS -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
           fi
 
       - name: Upload to GitHub Artifacts
@@ -49,4 +52,4 @@ jobs:
         with:
           name: Downloaded_Media
           path: output/*
-          retention-days: 1 # Deletes the file after 1 day to save your GitHub storage limits
+          retention-days: 1
