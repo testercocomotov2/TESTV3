@@ -52,55 +52,31 @@ jobs:
             yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
           fi
 
-      - name: Triple-Cloud Private Upload
+      - name: Multi-Cloud Private Upload
         env:
           MF_EMAIL: ${{ secrets.MF_EMAIL }}
           MF_PASSWORD: ${{ secrets.MF_PASSWORD }}
         run: |
-          FILE_PATH=$(find output -type f | head -n 1)
-          FILENAME=$(basename "$FILE_PATH")
-          
-          echo "### 🚀 SlayerGamerYT: Engine Summary" >> $GITHUB_STEP_SUMMARY
-          echo "File: **$FILENAME**" >> $GITHUB_STEP_SUMMARY
-          echo "---" >> $GITHUB_STEP_SUMMARY
+          # 1. Rename file for clean upload
+          ORIGINAL_PATH=$(find output -type f | head -n 1)
+          EXTENSION="${ORIGINAL_PATH##*.}"
+          SAFE_PATH="output/download_ready.$EXTENSION"
+          mv "$ORIGINAL_PATH" "$SAFE_PATH"
 
-          # 1. PixelDrain Upload (Fixed to handle API response better)
+          # 2. PixelDrain Upload
           echo "Uploading to PixelDrain..."
-          PD_RESPONSE=$(curl -s -T "$FILE_PATH" https://pixeldrain.com/api/file/)
-          PD_URL=$(echo "$PD_RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print('https://pixeldrain.com/u/'+data['id']) if 'id' in data else print('Failed')" || echo "Failed")
-          echo "PixelDrain: $PD_URL"
-          echo "* **PixelDrain:** $PD_URL" >> $GITHUB_STEP_SUMMARY
+          PD_RESPONSE=$(curl -s -T "$SAFE_PATH" "https://pixeldrain.com/api/file/download_ready.$EXTENSION")
+          PD_ID=$(echo "$PD_RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('id', ''))" || echo "")
+          if [ -n "$PD_ID" ]; then
+             echo "LINK_READY_PD: https://pixeldrain.com/u/$PD_ID"
+          fi
 
-          # 2. File.io Upload (Added retry/delay)
+          # 3. File.io Upload
           echo "Uploading to File.io..."
-          sleep 2
-          FIO_RESPONSE=$(curl -s -F "file=@$FILE_PATH" https://file.io)
-          FIO_URL=$(echo "$FIO_RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('link', 'Failed')) if isinstance(data, dict) else print('Failed')" || echo "Failed")
-          echo "File.io: $FIO_URL"
-          echo "* **File.io:** $FIO_URL (One-time use)" >> $GITHUB_STEP_SUMMARY
-
-          # 3. MediaFire Upload (Optional Secrets)
-          if [ -n "$MF_EMAIL" ] && [ -n "$MF_PASSWORD" ]; then
-            echo "Uploading to MediaFire..."
-            MF_STATUS=$(python3 -c "
-          import sys
-          from mediafire import MediaFireApi, MediaFireUploader
-          try:
-              api = MediaFireApi()
-              session = api.user_get_session_token(email='$MF_EMAIL', password='$MF_PASSWORD', app_id='42511')
-              api.session = session
-              uploader = MediaFireUploader(api)
-              with open('$FILE_PATH', 'rb') as fd:
-                  uploader.upload(fd, '$FILENAME')
-              print('SUCCESS')
-          except Exception as e:
-              print(f'FAILED:{e}')
-          ")
-            if [ "$MF_STATUS" == "SUCCESS" ]; then
-              echo "* **MediaFire:** [Check MyFiles](https://www.mediafire.com/myfiles/)" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "MediaFire Failed: $MF_STATUS"
-            fi
+          FIO_RESPONSE=$(curl -s -F "file=@$SAFE_PATH" https://file.io)
+          FIO_URL=$(echo "$FIO_RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('link', ''))" || echo "")
+          if [ -n "$FIO_URL" ]; then
+             echo "LINK_READY_FIO: $FIO_URL"
           fi
 
       - name: Cleanup
