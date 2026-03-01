@@ -1,5 +1,5 @@
 /**
- * SGYT Engine V11.1 - MediaFire & PEP 668 Fix
+ * SGYT Engine V12 - Triple Cloud Edition (MediaFire/PixelDrain/File.io)
  * User: SlayerGamerYT
  * Repo: testercocomotov2/TESTV3
  */
@@ -61,7 +61,7 @@ async function triggerAction() {
         });
 
         if (response.status === 204) {
-            log("Backend processing. Uploading soon...", "log-success");
+            log("Backend processing. Running Multi-Cloud Upload...", "log-success");
             setTimeout(() => trackProgress(token), 20000);
         } else {
             const err = await response.json();
@@ -89,23 +89,23 @@ async function trackProgress(token) {
                 document.getElementById('startBtn').disabled = false;
                 
                 if (run.conclusion === 'success') {
-                    log("SUCCESS: Media link generated!", "log-success");
+                    log("SUCCESS: Cloud links generated!", "log-success");
                     const summaryUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/actions/runs/${run.id}`;
                     const linkBtn = document.getElementById('artifactLink');
                     linkBtn.href = summaryUrl;
-                    linkBtn.textContent = "🔗 Get Private Download Link";
+                    linkBtn.textContent = "🔗 Get Private Download Links";
                     document.getElementById('downloadArea').style.display = 'block';
                 } else {
-                    log("Engine Failed. Check your Actions logs.", "log-error");
+                    log("Engine Failed. Check your Actions logs for the specific error.", "log-error");
                 }
             } else {
-                log(`Status: ${run ? run.status : 'starting'}...`);
+                log(`Processing... (Status: ${run ? run.status : 'starting'})`);
             }
         } catch (e) { console.error(e); }
 
         if (attempts >= 150) {
             clearInterval(checkInterval);
-            log("Timeout reached.", "log-error");
+            log("Timeout: Process taking too long.", "log-error");
             document.getElementById('startBtn').disabled = false;
         }
     }, 10000);
