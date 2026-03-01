@@ -22,8 +22,9 @@ jobs:
 
       - name: Install Tools
         run: |
-          brew install ffmpeg deno python
-          pip3 install mediafire
+          brew install ffmpeg deno
+          # Fix for PEP 668: Break system packages is safe on temporary runners
+          pip3 install mediafire --break-system-packages
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
 
@@ -52,43 +53,45 @@ jobs:
             yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
           fi
 
-      - name: Private MediaFire Upload
+      - name: Private Upload (MediaFire + Backup)
         env:
           MF_EMAIL: ${{ secrets.MF_EMAIL }}
           MF_PASSWORD: ${{ secrets.MF_PASSWORD }}
-          MF_API_KEY: ${{ secrets.MF_API_KEY }}
         run: |
           FILE_PATH=$(find output -type f | head -n 1)
           FILENAME=$(basename "$FILE_PATH")
           
-          # We use a secondary cloud host as a bridge if MediaFire API isn't set up
-          # Because MediaFire requires a validated Application ID for direct API uploads
-          if [ -z "$MF_EMAIL" ]; then
-            echo "MediaFire Credentials missing! Falling back to stable cloud for SlayerGamerYT."
-            DOWNLOAD_LINK=$(curl -F "file=@$FILE_PATH" https://0x0.st)
-          else
-            # Professional MediaFire Python Upload Logic
-            python3 -c "
-          import os, sys
+          # Check if MediaFire credentials exist
+          if [ -n "$MF_EMAIL" ] && [ -n "$MF_PASSWORD" ]; then
+            echo "Uploading to MediaFire..."
+            # Using Python to handle MediaFire API
+            DOWNLOAD_LINK=$(python3 -c "
+          import sys
           from mediafire import MediaFireApi, MediaFireUploader
-          api = MediaFireApi()
-          session = api.user_get_session_token(email='$MF_EMAIL', password='$MF_PASSWORD', app_id='42511')
-          api.session = session
-          uploader = MediaFireUploader(api)
-          with open('$FILE_PATH', 'rb') as fd:
-              result = uploader.upload(fd, '$FILENAME', folder_key='myfiles')
-          # MediaFire doesn't return the direct link easily without a Pro account
-          # So we print the confirmation and provide the folder link
-          print('UPLOAD_SUCCESS')
-          "
-            DOWNLOAD_LINK="https://www.mediafire.com/myfiles/"
+          try:
+              api = MediaFireApi()
+              session = api.user_get_session_token(email='$MF_EMAIL', password='$MF_PASSWORD', app_id='42511')
+              api.session = session
+              uploader = MediaFireUploader(api)
+              with open('$FILE_PATH', 'rb') as fd:
+                  uploader.upload(fd, '$FILENAME')
+              print('https://www.mediafire.com/myfiles/')
+          except Exception as e:
+              print(f'ERROR:{e}')
+          ")
+          fi
+
+          # If MediaFire failed or credentials missing, use Litterbox as fallback
+          if [[ "$DOWNLOAD_LINK" == ERROR* ]] || [ -z "$DOWNLOAD_LINK" ]; then
+            echo "MediaFire failed or not configured. Falling back to Litterbox..."
+            DOWNLOAD_LINK=$(curl -F "reqtype=fileupload" -F "time=1h" -F "fileToUpload=@$FILE_PATH" https://litterbox.catbox.moe/resources/internals/api.php)
           fi
 
           echo "--------------------------------------------------"
           echo "PRIVATE DOWNLOAD LINK: $DOWNLOAD_LINK"
           echo "--------------------------------------------------"
           
-          echo "### 🚀 SlayerGamerYT: Engine Ready!" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 SlayerGamerYT: Engine Success!" >> $GITHUB_STEP_SUMMARY
           echo "File: **$FILENAME**" >> $GITHUB_STEP_SUMMARY
           echo "[Click here to Download]($DOWNLOAD_LINK)" >> $GITHUB_STEP_SUMMARY
 
