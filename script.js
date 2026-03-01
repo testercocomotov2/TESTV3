@@ -1,13 +1,13 @@
 /**
- * SGYT Engine V4 - ID-Based Public Access
+ * SGYT Engine V4 - 422 Fix Edition
  * User: SlayerGamerYT
- * Repo: testercocomotov2/TESTV3
  */
 
 const REPO_OWNER = "testercocomotov2";
 const REPO_NAME = "TESTV3";
 const WORKFLOW_FILE = "downloader.yml";
-const BRANCH = "main"; // Change to "master" if your repo uses it
+// IMPORTANT: Most new repos use 'main', but older ones use 'master'
+const BRANCH = "main"; 
 
 window.onload = () => {
     const saved = localStorage.getItem('gh_pat');
@@ -55,14 +55,22 @@ async function triggerAction() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                ref: BRANCH,
-                inputs: { youtube_url: url, format: mode, quality: quality, audio_ext: audioExt }
+                ref: BRANCH, // If you get 422, change 'main' to 'master' at the top of this script
+                inputs: { 
+                    youtube_url: url, 
+                    format: mode, 
+                    quality: quality, 
+                    audio_ext: audioExt 
+                }
             })
         });
 
         if (response.status === 204) {
-            log("Backend started. Monitoring progress...", "log-success");
-            setTimeout(() => trackProgress(token), 15000);
+            log("Engine Ignited! Monitoring progress...", "log-success");
+            setTimeout(() => trackProgress(token), 10000);
+        } else if (response.status === 422) {
+            log("ERROR 422: Branch name mismatch or Workflow hidden. Try changing 'main' to 'master' in script.js.", "log-error");
+            btn.disabled = false;
         } else {
             const err = await response.json();
             throw new Error(err.message || response.status);
@@ -84,23 +92,22 @@ async function trackProgress(token) {
             const data = await res.json();
             const run = data.workflow_runs[0];
 
-            if (run.status === 'completed') {
+            if (run && run.status === 'completed') {
                 clearInterval(checkInterval);
                 document.getElementById('startBtn').disabled = false;
                 
                 if (run.conclusion === 'success') {
-                    // ID-Based Public Link Construction
                     const workflowId = run.workflow_id;
                     const publicUrl = `https://nightly.link/${REPO_OWNER}/${REPO_NAME}/workflows/${workflowId}/${BRANCH}/Downloaded_Media.zip`;
                     
                     document.getElementById('artifactLink').href = publicUrl;
                     document.getElementById('downloadArea').style.display = 'block';
-                    log("SUCCESS: Public link ready! Wait 30s before clicking if 404 appears.", "log-success");
+                    log("SUCCESS: Public link ready!", "log-success");
                 } else {
-                    log("Engine Error. Check GitHub logs.", "log-error");
+                    log("Backend Engine failed. Check GitHub Logs.", "log-error");
                 }
             } else {
-                log(`Status: ${run.status}...`);
+                log(`Processing... Status: ${run ? run.status : 'starting'}`);
             }
         } catch (e) { console.error(e); }
 
