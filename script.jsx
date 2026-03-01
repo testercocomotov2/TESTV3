@@ -1,5 +1,14 @@
 const { useState } = React;
 
+// A list of public, working Cobalt v10 community instances
+const API_INSTANCES = [
+    "https://api.cobalt.tools/",               // Official
+    "https://cobalt-api.kwiatekmateusz.com/",  // Community Instance 1
+    "https://api.cobalt.best/",                // Community Instance 2
+    "https://cobalt.q-n-d.de/",                // Community Instance 3
+    "https://co.wuk.sh/"                       // Community Instance 4
+];
+
 function App() {
     const [url, setUrl] = useState('');
     const [isAudio, setIsAudio] = useState(false);
@@ -16,46 +25,68 @@ function App() {
         }
 
         setLoading(true);
-        setStatus({ type: 'info', message: 'Processing your request...' });
+        setStatus({ type: 'info', message: 'Finding an available server...' });
         setDownloadData(null);
 
-        try {
-            const response = await fetch("https://api.cobalt.tools/", {
-                method: "POST",
-                headers: {
-                    "Accept": "application/json",
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    url: url,
-                    downloadMode: isAudio ? "audio" : "auto"
-                })
-            });
+        let success = false;
+        let lastError = "";
 
-            if (!response.ok) {
-                throw new Error("API rejected the request. It may be rate-limited.");
+        // Loop through the backup API instances until one works
+        for (let i = 0; i < API_INSTANCES.length; i++) {
+            const apiUrl = API_INSTANCES[i];
+            setStatus({ type: 'info', message: `Trying server ${i + 1}/${API_INSTANCES.length}...` });
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: "POST",
+                    headers: {
+                        "Accept": "application/json",
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        url: url,
+                        downloadMode: isAudio ? "audio" : "auto"
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server ${i + 1} rejected the request (Rate Limited).`);
+                }
+
+                const data = await response.json();
+
+                if (data.status === "error") {
+                    throw new Error(data.text || 'Conversion failed on this server.');
+                } else if (data.url) {
+                    // Success! Stop the loop.
+                    setStatus({ type: 'success', message: 'File is ready for download!' });
+                    setDownloadData(data);
+                    success = true;
+                    break; 
+                }
+            } catch (error) {
+                console.warn(`Failed on ${apiUrl}:`, error.message);
+                lastError = error.message;
+                // If it fails, the loop continues to the next URL
             }
-
-            const data = await response.json();
-
-            if (data.status === "error") {
-                setStatus({ type: 'error', message: data.text || 'Failed to convert.' });
-            } else if (data.url) {
-                setStatus({ type: 'success', message: 'Ready for download!' });
-                setDownloadData(data);
-            }
-        } catch (error) {
-            setStatus({ type: 'error', message: error.message });
-        } finally {
-            setLoading(false);
         }
+
+        // If the loop finishes and all servers failed
+        if (!success) {
+            setStatus({ 
+                type: 'error', 
+                message: `All servers are currently busy. Last error: ${lastError}` 
+            });
+        }
+        
+        setLoading(false);
     };
 
     return (
         <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-700">
             <div className="text-center mb-8">
                 <h1 className="text-3xl font-bold text-red-500 mb-2">YT Converter</h1>
-                <p className="text-gray-400 text-sm">React Powered • No Ads • Free API</p>
+                <p className="text-gray-400 text-sm">React Powered • Distributed API</p>
             </div>
 
             <form onSubmit={handleDownload} className="space-y-4">
@@ -93,7 +124,7 @@ function App() {
                         : 'bg-red-600 hover:bg-red-700 active:scale-95'
                     }`}
                 >
-                    {loading ? 'Converting...' : 'Convert File'}
+                    {loading ? 'Processing...' : 'Convert File'}
                 </button>
             </form>
 
