@@ -51,22 +51,23 @@ jobs:
             yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/dl_ready.mp4" "${{ inputs.youtube_url }}"
           fi
 
-      - name: Filebin Secure Upload
+      - name: Filebin Sniper Upload
         run: |
           FILE_PATH=$(find output -type f | head -n 1)
           FILENAME=$(basename "$FILE_PATH")
-          # Generate a random 12-char bin ID for privacy
           BIN_ID=$(openssl rand -hex 6)
           
-          echo "Uploading to Filebin (Bin: $BIN_ID)..."
+          # We use nohup and redirect to a temp file, then grep the link out.
+          # This avoids the curl progress bar filling the logs and hiding the link.
+          nohup curl -s -X POST --data-binary @"$FILE_PATH" "https://filebin.net/$BIN_ID/$FILENAME" > upload_log.txt 2>&1 &
           
-          # Upload using binary data as per API docs
-          curl -X POST --data-binary @"$FILE_PATH" "https://filebin.net/$BIN_ID/$FILENAME"
+          # Wait for upload to start, then print the clean link with a clear prefix for the JS
+          echo "UPLOAD_STARTED"
+          echo "SGYT_LINK: https://filebin.net/$BIN_ID/$FILENAME" | grep "filebin.net"
           
-          echo "--------------------------------------------------"
-          echo "SGYT_LINK: https://filebin.net/$BIN_ID/$FILENAME"
-          echo "--------------------------------------------------"
+          # Wait for the background process to actually finish so we don't kill the runner too early
+          wait $!
 
       - name: Cleanup
         if: always()
-        run: rm -rf output raw.txt final_cookies.txt
+        run: rm -rf output raw.txt final_cookies.txt upload_log.txt
