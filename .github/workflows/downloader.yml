@@ -20,19 +20,38 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Tools
+      - name: Install Core Tools
         run: |
-          brew install ffmpeg
+          brew install ffmpeg deno
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
+
+      - name: Cookie Authentication
+        env:
+          YT_COOKIES_SECRET: ${{ secrets.YT_COOKIES }}
+        run: |
+          # Reconstructing Netscape cookie format from secrets
+          echo "$YT_COOKIES_SECRET" > raw.txt
+          python3 -c "
+          import os
+          if os.path.exists('raw.txt'):
+              with open('raw.txt', 'r') as f, open('final_cookies.txt', 'w') as out:
+                  out.write('# Netscape HTTP Cookie File\n')
+                  for line in f:
+                      p = line.strip().split()
+                      if len(p) == 7: out.write('\t'.join(p) + '\n')
+          "
 
       - name: Download Media
         run: |
           mkdir output
+          # Using cookies and specifying the JS runtime for extraction
+          FLAGS="--cookies final_cookies.txt --javascript-delay 5"
+          
           if [ "${{ inputs.format }}" == "audio" ]; then
-            yt-dlp -x --audio-format ${{ inputs.audio_ext }} -o "output/dl_engine.%(ext)s" "${{ inputs.youtube_url }}"
+            yt-dlp $FLAGS -x --audio-format ${{ inputs.audio_ext }} -o "output/dl_engine.%(ext)s" "${{ inputs.youtube_url }}"
           else
-            yt-dlp -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/dl_engine.mp4" "${{ inputs.youtube_url }}"
+            yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/dl_engine.mp4" "${{ inputs.youtube_url }}"
           fi
 
       - name: Private TmpFiles Upload
@@ -40,7 +59,6 @@ jobs:
           FILE_PATH=$(find output -type f | head -n 1)
           FILENAME=$(basename "$FILE_PATH")
           
-          # Upload and convert to Direct Download format
           RESPONSE=$(curl -s -F "file=@$FILE_PATH" https://tmpfiles.org/api/v1/upload)
           
           python3 -c "
@@ -48,7 +66,6 @@ jobs:
           try:
               data = json.loads(sys.stdin.read())
               url = data['data']['url']
-              # Format to: https://tmpfiles.org/dl/ID/filename
               dl_url = url.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/') + '/$FILENAME'
               print(f'\n\nSUCCESS_LINK: {dl_url}\n\n')
           except:
@@ -57,4 +74,4 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -rf output
+        run: rm -rf output raw.txt final_cookies.txt
