@@ -18,26 +18,28 @@ on:
 
 jobs:
   download_and_convert:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install FFmpeg, Node.js, and yt-dlp
+      - name: Install FFmpeg, Deno, and latest yt-dlp
         run: |
-          sudo apt-get update
-          # We install nodejs so yt-dlp can solve YouTube's anti-bot math puzzles
-          sudo apt-get install -y ffmpeg nodejs
-          python3 -m pip install -U yt-dlp
+          # Install the required Deno JS engine and FFmpeg using Mac's Homebrew
+          brew install ffmpeg deno
+          
+          # Download the absolute latest, bleeding-edge version of yt-dlp
+          sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp
+          sudo chmod a+rx /usr/local/bin/yt-dlp
 
       - name: Download Media
         run: |
           mkdir output
           cd output
           
-          # ANTI-BOT SPOOFING: We tell YouTube we are an Android device, not a server.
-          SPOOF_FLAGS="--extractor-args youtube:client=android,tv,web"
+          # Advanced spoofing: Disguise the Mac as an iOS/Android device
+          SPOOF_FLAGS="--extractor-args youtube:client=ios,android,tv"
 
           if [ "${{ inputs.format }}" == "audio" ]; then
             echo "Downloading Audio..."
