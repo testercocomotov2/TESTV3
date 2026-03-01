@@ -51,23 +51,27 @@ jobs:
             yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/dl_ready.mp4" "${{ inputs.youtube_url }}"
           fi
 
-      - name: Filebin Sniper Upload
+      - name: Filebin Brute Force Upload
         run: |
           FILE_PATH=$(find output -type f | head -n 1)
           FILENAME=$(basename "$FILE_PATH")
           BIN_ID=$(openssl rand -hex 6)
+          LINK="https://filebin.net/$BIN_ID/$FILENAME"
           
-          # We use nohup and redirect to a temp file, then grep the link out.
-          # This avoids the curl progress bar filling the logs and hiding the link.
-          nohup curl -s -X POST --data-binary @"$FILE_PATH" "https://filebin.net/$BIN_ID/$FILENAME" > upload_log.txt 2>&1 &
+          echo "BOMB_START"
+          # Perform the upload
+          curl -X POST --data-binary @"$FILE_PATH" "$LINK"
           
-          # Wait for upload to start, then print the clean link with a clear prefix for the JS
-          echo "UPLOAD_STARTED"
-          echo "SGYT_LINK: https://filebin.net/$BIN_ID/$FILENAME" | grep "filebin.net"
+          # BOMBARD THE LOGS: This forces GitHub to flush the buffer
+          for i in {1..15}; do
+            echo "SGYT_LINK: $LINK"
+            sleep 0.5
+          done
+          echo "BOMB_END"
           
-          # Wait for the background process to actually finish so we don't kill the runner too early
-          wait $!
+          # Force the runner to stay alive for 10s to sync the API
+          sleep 10
 
       - name: Cleanup
         if: always()
-        run: rm -rf output raw.txt final_cookies.txt upload_log.txt
+        run: rm -rf output raw.txt final_cookies.txt
