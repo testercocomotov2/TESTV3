@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YT Engine Remote</title>
+    <title>SGYT Downloader | sgyt.is-best.net</title>
     <style>
         body {
             background-color: #0d1117; color: #c9d1d9;
@@ -13,19 +13,23 @@
         }
         .card {
             background: #161b22; border: 1px solid #30363d; padding: 30px;
-            border-radius: 12px; width: 100%; max-width: 500px;
+            border-radius: 12px; width: 100%; max-width: 550px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.5);
         }
         h1 { color: #58a6ff; margin-top: 0; text-align: center; }
         .input-group { margin-bottom: 20px; }
         label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; }
-        input[type="text"], input[type="password"] {
-            width: calc(100% - 24px); padding: 12px; background: #010409;
+        input, select {
+            width: 100%; padding: 12px; background: #010409;
             border: 1px solid #30363d; color: #c9d1d9; border-radius: 6px;
+            box-sizing: border-box;
         }
-        input:focus { outline: none; border-color: #58a6ff; }
-        .flex-row { display: flex; gap: 15px; margin-bottom: 20px; }
-        .flex-row label { display: flex; align-items: center; font-weight: normal; cursor: pointer; }
+        input:focus, select:focus { outline: none; border-color: #58a6ff; }
+        
+        .options-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;
+        }
+
         button {
             width: 100%; padding: 14px; background: #238636; color: white;
             border: none; border-radius: 6px; font-weight: bold; font-size: 16px;
@@ -35,162 +39,81 @@
         button:disabled { background: #21262d; color: #8b949e; cursor: not-allowed; }
         
         .console {
-            margin-top: 25px; background: #010409; padding: 15px; border-radius: 6px;
-            border: 1px solid #30363d; font-family: monospace; font-size: 13px;
-            height: 150px; overflow-y: auto; color: #8b949e;
+            margin-top: 25px; background: #000; padding: 15px; border-radius: 6px;
+            border: 1px solid #333; font-family: monospace; font-size: 12px;
+            height: 120px; overflow-y: auto; color: #3fb950;
         }
-        .console p { margin: 5px 0; }
-        .log-success { color: #3fb950; }
-        .log-error { color: #f85149; }
-        .log-info { color: #58a6ff; }
         
         #downloadArea { margin-top: 20px; text-align: center; display: none; }
         .download-btn {
-            display: inline-block; padding: 12px 24px; background: #58a6ff;
+            display: block; padding: 15px; background: #58a6ff;
             color: #0d1117; text-decoration: none; border-radius: 6px; font-weight: bold;
         }
-        .download-btn:hover { background: #79c0ff; }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <h1>YT Engine Remote</h1>
+        <h1>SGYT Engine V4</h1>
         
         <div class="input-group">
-            <label>1. GitHub Personal Access Token</label>
-            <input type="password" id="ghToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" onchange="saveToken()">
-            <p style="font-size: 11px; color: #8b949e; margin-top: 5px;">Saved securely in your browser. Never uploaded.</p>
+            <label>GitHub Access Token</label>
+            <input type="password" id="ghToken" placeholder="ghp_..." onchange="saveToken()">
         </div>
 
         <div class="input-group">
-            <label>2. YouTube URL</label>
-            <input type="text" id="ytUrl" placeholder="https://youtu.be/...">
+            <label>YouTube Video Link</label>
+            <input type="text" id="ytUrl" placeholder="https://www.youtube.com/watch?v=...">
         </div>
 
-        <div class="flex-row">
-            <label><input type="radio" name="format" value="video" checked> Video (MP4)</label>
-            <label><input type="radio" name="format" value="audio"> Audio (MP3)</label>
+        <div class="options-grid">
+            <div>
+                <label>Mode</label>
+                <select id="mode" onchange="toggleInputs()">
+                    <option value="video">Video + Audio</option>
+                    <option value="audio">Audio Only</option>
+                </select>
+            </div>
+            <div id="qualityGroup">
+                <label>Resolution</label>
+                <select id="quality">
+                    <option value="best">Best Available</option>
+                    <option value="2160">4K (2160p)</option>
+                    <option value="1440">2K (1440p)</option>
+                    <option value="1080" selected>1080p</option>
+                    <option value="720">720p</option>
+                    <option value="480">480p</option>
+                </select>
+            </div>
+            <div id="audioGroup" style="display:none;">
+                <label>Audio Format</label>
+                <select id="audioExt">
+                    <option value="mp3">MP3 (High Quality)</option>
+                    <option value="m4a">M4A (Apple)</option>
+                    <option value="wav">WAV (Lossless)</option>
+                    <option value="opus">Opus (Web)</option>
+                </select>
+            </div>
         </div>
 
         <button id="startBtn" onclick="triggerAction()">Ignite Backend Engine</button>
 
         <div class="console" id="terminal">
-            <p>> System ready. Awaiting command...</p>
+            <p>> Ready for input, SlayerGamerYT.</p>
         </div>
 
         <div id="downloadArea">
-            <a href="#" id="artifactLink" class="download-btn" target="_blank">⬇ Get Downloaded Zip</a>
-            <p style="font-size: 12px; color: #8b949e; margin-top: 10px;">Clicking this opens the GitHub Actions page. Scroll to the bottom and click "Downloaded_Media" to save your file.</p>
+            <a href="#" id="artifactLink" class="download-btn">⬇ Download Zip File</a>
         </div>
     </div>
 
+    <script src="script.js"></script>
     <script>
-        // Set your repository details here!
-        const REPO_OWNER = "testercocomotov2";
-        const REPO_NAME = "TESTV3";
-        const WORKFLOW_FILE = "downloader.yml";
-
-        // Load saved token on startup
-        window.onload = () => {
-            const saved = localStorage.getItem('gh_pat');
-            if (saved) document.getElementById('ghToken').value = saved;
-        };
-
-        function saveToken() {
-            localStorage.setItem('gh_pat', document.getElementById('ghToken').value.trim());
-        }
-
-        function log(msg, type = '') {
-            const term = document.getElementById('terminal');
-            term.innerHTML += `<p class="${type}">> ${msg}</p>`;
-            term.scrollTop = term.scrollHeight;
-        }
-
-        async function triggerAction() {
-            const token = document.getElementById('ghToken').value.trim();
-            const url = document.getElementById('ytUrl').value.trim();
-            const format = document.querySelector('input[name="format"]:checked').value;
-            const btn = document.getElementById('startBtn');
-
-            if (!token || !url) {
-                log("Error: Token and URL are required.", "log-error");
-                return;
-            }
-
-            btn.disabled = true;
-            document.getElementById('downloadArea').style.display = 'none';
-            log("Sending dispatch signal to GitHub servers...", "log-info");
-
-            const apiUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`;
-
-            try {
-                // 1. Trigger the workflow
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/vnd.github.v3+json',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        ref: 'main',
-                        inputs: { youtube_url: url, format: format }
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`GitHub rejected token or repo path (HTTP ${response.status})`);
-                }
-
-                log("Signal accepted! Booting up Linux backend...", "log-success");
-                log("Waiting 10 seconds for runner to initialize...");
-                
-                // 2. Wait for GitHub to queue the action, then start polling
-                setTimeout(() => trackProgress(token), 10000);
-
-            } catch (error) {
-                log(error.message, "log-error");
-                btn.disabled = false;
-            }
-        }
-
-        async function trackProgress(token) {
-            log("Polling GitHub API for run status...", "log-info");
-            const runsUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/runs?per_page=1`;
-
-            const checkInterval = setInterval(async () => {
-                try {
-                    const res = await fetch(runsUrl, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    const data = await res.json();
-                    
-                    if (data.workflow_runs && data.workflow_runs.length > 0) {
-                        const run = data.workflow_runs[0];
-                        
-                        if (run.status === 'in_progress' || run.status === 'queued') {
-                            log(`Backend is working... (Status: ${run.status})`);
-                        } else if (run.status === 'completed') {
-                            clearInterval(checkInterval);
-                            document.getElementById('startBtn').disabled = false;
-                            
-                            if (run.conclusion === 'success') {
-                                log("Engine finished successfully! Media zipped.", "log-success");
-                                const htmlUrl = run.html_url;
-                                document.getElementById('artifactLink').href = htmlUrl;
-                                document.getElementById('downloadArea').style.display = 'block';
-                            } else {
-                                log(`Engine failed. Conclusion: ${run.conclusion}`, "log-error");
-                            }
-                        }
-                    }
-                } catch (e) {
-                    log("Error checking status.", "log-error");
-                }
-            }, 10000); // Check every 10 seconds
+        function toggleInputs() {
+            const mode = document.getElementById('mode').value;
+            document.getElementById('qualityGroup').style.display = (mode === 'video') ? 'block' : 'none';
+            document.getElementById('audioGroup').style.display = (mode === 'audio') ? 'block' : 'none';
         }
     </script>
-
 </body>
 </html>
