@@ -1,5 +1,5 @@
 /**
- * SGYT Engine V26 - Turbo Logic + PixelDrain Stable
+ * SGYT Engine V28 - Filebin Turbo Edition
  * User: SlayerGamerYT
  * Domain: sgyt.is-best.net
  */
@@ -35,13 +35,13 @@ async function triggerAction() {
     const btn = document.getElementById('startBtn');
 
     if (!token || !url) {
-        log("Error: Missing credentials.", "log-error");
+        log("Error: Credentials missing.", "log-error");
         return;
     }
 
     btn.disabled = true;
     document.getElementById('downloadArea').style.display = 'none';
-    log("Igniting Engine V26...", "log-info");
+    log("Igniting Filebin Engine V28...", "log-info");
 
     try {
         const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
@@ -58,7 +58,7 @@ async function triggerAction() {
         });
 
         if (response.status === 204) {
-            log("Backend Live. 2s Polling Active...", "log-success");
+            log("Backend Live. Polling logs (2s)...", "log-success");
             turboTrack(token);
         } else {
             const err = await response.json();
@@ -94,30 +94,30 @@ async function turboTrack(token) {
                 });
                 const logContent = await logsRes.text();
                 
-                // Optimized regex to find the PixelDrain or TmpFiles URL
-                const match = logContent.match(/https:\/\/(pixeldrain\.com|tmpfiles\.org)\/(u|dl)\/[^\s"]+/);
+                // Sniper Regex for Filebin
+                const match = logContent.match(/SGYT_LINK: (https:\/\/filebin\.net\/\S+)/);
                 
                 if (match) {
                     linkFound = true;
                     clearInterval(interval);
-                    const dlUrl = match[0].trim();
+                    const dlUrl = match[1].trim();
                     
                     log("--- LINK SNIPED ---", "log-success");
-                    log(`<a href="${dlUrl}" target="_blank" style="color:#00ff00; font-weight:bold; font-size:1.2em;">🚀 DOWNLOAD NOW</a>`, "log-success");
+                    log(`<a href="${dlUrl}" target="_blank" style="color:#00ff00; font-weight:bold; font-size:1.1em;">🚀 DOWNLOAD FROM FILEBIN</a>`, "log-success");
                     
                     document.getElementById('artifactLink').href = dlUrl;
                     document.getElementById('downloadArea').style.display = 'block';
                     document.getElementById('startBtn').disabled = false;
                 } else {
-                    console.log("2s Polling: Scanning logs...");
+                    console.log("Searching logs...");
                 }
 
                 if (run.status === 'completed' && !linkFound) {
                     clearInterval(interval);
-                    log("Process finished. No link found in logs.", "log-error");
+                    log("Engine finished. No link found.", "log-error");
                     document.getElementById('startBtn').disabled = false;
                 }
             }
-        } catch (e) { console.warn("Polling Sync Issue..."); }
-    }, 2000); // 2-second polling as requested
+        } catch (e) { console.warn("Polling..."); }
+    }, 2000); // Strict 2-second polling
 }
