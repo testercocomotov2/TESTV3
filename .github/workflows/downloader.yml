@@ -69,11 +69,11 @@ jobs:
           try:
               data = json.loads(sys.stdin.read())
               url = data['data']['url']
-              # Convert https://tmpfiles.org/123 to https://tmpfiles.org/dl/123 for direct download
               dl_url = url.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/')
               print(f'TMP_LINK: {dl_url}')
           except Exception as e:
-              print(f'ERROR: {e}')
+              # Fallback if JSON is weird
+              print('ERROR: JSON was unreadable')
           " <<< "$RESPONSE"
 
       - name: Cleanup
