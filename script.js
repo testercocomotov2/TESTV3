@@ -1,5 +1,5 @@
 /**
- * SGYT Engine V33 - Input Sync + Webhook ASAP
+ * SGYT Engine V34 - Bot-Bypass + Input Sync
  * User: SlayerGamerYT
  * Domain: sgyt.is-best.net
  */
@@ -46,7 +46,7 @@ async function triggerAction() {
 
     btn.disabled = true;
     document.getElementById('downloadArea').style.display = 'none';
-    log("Igniting Engine V33...", "log-info");
+    log("Igniting Engine V34 (Bypassing Bot Check)...", "log-info");
 
     try {
         const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
@@ -64,7 +64,7 @@ async function triggerAction() {
         });
 
         if (response.status === 204) {
-            log("Backend started. Monitoring Webhook Signal...", "log-success");
+            log("Backend started. Waiting for Webhook Signal...", "log-success");
             startSignalListener();
         } else {
             const err = await response.json();
@@ -78,26 +78,19 @@ async function triggerAction() {
 
 async function startSignalListener() {
     let linkFound = false;
-    
     const interval = setInterval(async () => {
         if (linkFound) return;
-
         try {
             const res = await fetch(POLL_API);
             const data = await res.json();
-            
             if (data.data && data.data.length > 0) {
-                const lastRequest = data.data[0];
-                const content = lastRequest.content;
-
+                const content = data.data[0].content;
                 if (content && content.includes("filebin.net")) {
                     linkFound = true;
                     clearInterval(interval);
                     const dlUrl = content.trim();
-
                     log("--- SIGNAL SNIPED (ASAP) ---", "log-success");
                     log(`<a href="${dlUrl}" target="_blank" style="color:#00ff00; font-weight:bold;">🚀 DOWNLOAD FILE</a>`, "log-success");
-                    
                     document.getElementById('artifactLink').href = dlUrl;
                     document.getElementById('downloadArea').style.display = 'block';
                     document.getElementById('startBtn').disabled = false;
