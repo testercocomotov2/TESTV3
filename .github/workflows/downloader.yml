@@ -51,31 +51,32 @@ jobs:
             yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
           fi
 
-      - name: Private Upload (Transfer.sh)
+      - name: Private Upload (Litterbox)
         run: |
           FILE_PATH=$(find output -type f | head -n 1)
-          # Clean filename for the URL to avoid shell issues
-          CLEAN_NAME=$(basename "$FILE_PATH" | tr -d '[:space:]')
-          echo "Uploading: $CLEAN_NAME"
+          FILENAME=$(basename "$FILE_PATH")
+          echo "Uploading: $FILENAME"
           
-          # Transfer.sh uses a simple PUT request
-          DOWNLOAD_LINK=$(curl --upload-file "$FILE_PATH" "https://transfer.sh/$CLEAN_NAME")
+          # Upload to Litterbox (time=1h for privacy)
+          # Litterbox returns a simple URL string, no complex JSON
+          DOWNLOAD_LINK=$(curl -F "reqtype=fileupload" -F "time=1h" -F "fileToUpload=@$FILE_PATH" https://litterbox.catbox.moe/resources/internals/api.php)
           
           if [[ $DOWNLOAD_LINK == http* ]]; then
             echo "--------------------------------------------------"
             echo "PRIVATE DOWNLOAD LINK: $DOWNLOAD_LINK"
             echo "--------------------------------------------------"
             
-            # Post to GitHub Summary
-            echo "### 🚀 SlayerGamerYT: Engine Success!" >> $GITHUB_STEP_SUMMARY
-            echo "Your file is ready for private download." >> $GITHUB_STEP_SUMMARY
+            # Post to GitHub Summary for SlayerGamerYT
+            echo "### 🚀 SlayerGamerYT: Download Secured!" >> $GITHUB_STEP_SUMMARY
+            echo "File: **$FILENAME**" >> $GITHUB_STEP_SUMMARY
+            echo "This link expires in **1 hour** for your privacy." >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "[Click here to Download]($DOWNLOAD_LINK)" >> $GITHUB_STEP_SUMMARY
           else
-            echo "Upload Failed!"
+            echo "Upload Failed: $DOWNLOAD_LINK"
             exit 1
           fi
 
-      - name: Cleanup
+      - name: Final Cleanup
         if: always()
         run: rm -rf output raw.txt final_cookies.txt
