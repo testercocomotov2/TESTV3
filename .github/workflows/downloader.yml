@@ -30,20 +30,31 @@ jobs:
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
 
-      - name: Load Cookies Securely
+      - name: Sanitize and Load Cookies
         env:
           YT_COOKIES_SECRET: ${{ secrets.YT_COOKIES }}
         run: |
-          # Write the secret from GitHub into a local file for yt-dlp to read
-          echo "$YT_COOKIES_SECRET" > cookies.txt
+          # 1. Write the raw secret to a file
+          echo "$YT_COOKIES_SECRET" > raw_cookies.txt
+          
+          # 2. Strip Android/Windows line breaks to make it Unix compatible
+          tr -d '\r' < raw_cookies.txt > fixed_cookies.txt
+          
+          # 3. Force the Netscape header if it is missing
+          if ! head -n 1 fixed_cookies.txt | grep -q "# Netscape HTTP Cookie File"; then
+            echo "# Netscape HTTP Cookie File" > final_cookies.txt
+            cat fixed_cookies.txt >> final_cookies.txt
+          else
+            cp fixed_cookies.txt final_cookies.txt
+          fi
 
       - name: Download Media
         run: |
           mkdir output
           cd output
           
-          # We now pass the cookies file to bypass the bot check
-          SPOOF_FLAGS="--cookies ../cookies.txt --extractor-args youtube:client=ios,android,tv"
+          # Pass the perfectly formatted cookie file and client spoofing
+          SPOOF_FLAGS="--cookies ../final_cookies.txt --extractor-args youtube:client=ios,android,tv"
 
           if [ "${{ inputs.format }}" == "audio" ]; then
             echo "Downloading Audio..."
