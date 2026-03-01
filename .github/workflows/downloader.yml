@@ -51,33 +51,28 @@ jobs:
             yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
           fi
 
-      - name: Secure Plain-Text Upload
+      - name: Secure CLI Upload
         run: |
-          # 1. Rename to avoid any special character shell issues
+          # Rename to avoid bold/italic characters breaking the upload URL
           ORIGINAL_PATH=$(find output -type f | head -n 1)
           EXTENSION="${ORIGINAL_PATH##*.}"
-          SAFE_PATH="output/dl_ready.$EXTENSION"
+          SAFE_PATH="output/secure_dl.$EXTENSION"
           mv "$ORIGINAL_PATH" "$SAFE_PATH"
 
-          echo "Attempting upload to developer-friendly hosts..."
+          echo "Uploading to bashupload.com..."
 
-          # 2. Try 0x0.st (Returns plain text URL)
-          LINK=$(curl -s -F "file=@$SAFE_PATH" https://0x0.st)
-          
-          # 3. Fallback to envs.sh if 0x0.st is down
-          if [[ $LINK != http* ]]; then
-             echo "0x0.st failed, trying envs.sh..."
-             LINK=$(curl -s -F "file=@$SAFE_PATH" https://envs.sh)
-          fi
+          # Upload using the binary stream method (-T)
+          # BashUpload returns the link as a plain text response
+          LINK=$(curl -s -T "$SAFE_PATH" "https://bashupload.com/secure_dl.$EXTENSION")
 
-          # 4. Final Output for JS Scraping
           if [[ $LINK == http* ]]; then
              echo "--------------------------------------------------"
-             echo "DIRECT_LINK: $LINK"
+             echo "DOWNLOAD_LINK: $LINK"
              echo "--------------------------------------------------"
           else
-             echo "All upload services failed."
-             exit 1
+             echo "BashUpload failed. Trying fallback to 0x0.st..."
+             LINK_FALLBACK=$(curl -s -F "file=@$SAFE_PATH" https://0x0.st)
+             echo "DOWNLOAD_LINK: $LINK_FALLBACK"
           fi
 
       - name: Cleanup
