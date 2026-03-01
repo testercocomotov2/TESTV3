@@ -1,79 +1,98 @@
-const { useState, useEffect } = React;
+const { useState } = React;
+
+// A decentralized list of open-source Invidious proxy servers
+const INVIDIOUS_INSTANCES = [
+    "https://vid.puffyan.us",
+    "https://yewtu.be",
+    "https://invidious.jing.rocks",
+    "https://invidious.nerdvpn.de",
+    "https://invidious.slipfox.xyz",
+    "https://iv.melmac.space"
+];
 
 function App() {
     const [url, setUrl] = useState('');
-    const [format, setFormat] = useState('mp4');
+    const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState({ type: '', message: '' });
-    const [progress, setProgress] = useState(0);
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [downloadUrl, setDownloadUrl] = useState(null);
-    const [videoInfo, setVideoInfo] = useState(null);
+    const [videoData, setVideoData] = useState(null);
 
-    const checkProgress = async (id) => {
-        try {
-            const res = await fetch(`https://p.oceansaver.in/ajax/progress.php?id=${id}`);
-            const data = await res.json();
-
-            if (data.success && data.progress) {
-                setProgress(data.progress);
-                
-                if (data.progress === 1000 || data.download_url) {
-                    setIsProcessing(false);
-                    setDownloadUrl(data.download_url);
-                    setStatus({ type: 'success', message: 'Conversion complete!' });
-                    return;
-                }
-                
-                // If not done, check again in 2 seconds
-                setTimeout(() => checkProgress(id), 2000);
-            } else {
-                throw new Error("Failed to track progress.");
-            }
-        } catch (error) {
-            setIsProcessing(false);
-            setStatus({ type: 'error', message: 'Connection to server lost during conversion.' });
-        }
+    const extractVideoId = (link) => {
+        // Regex to handle standard links, youtu.be, and shorts
+        const match = link.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/|.*shorts\/))([^&?]+)/);
+        return match ? match[1] : null;
     };
 
     const handleDownload = async (e) => {
         e.preventDefault();
         
-        if (!url.includes('youtu')) {
-            setStatus({ type: 'error', message: 'Please enter a valid YouTube URL.' });
+        const videoId = extractVideoId(url);
+        if (!videoId) {
+            setStatus({ type: 'error', message: 'Invalid YouTube URL. Please check the link.' });
             return;
         }
 
-        setIsProcessing(true);
-        setDownloadUrl(null);
-        setVideoInfo(null);
-        setProgress(0);
-        setStatus({ type: 'info', message: 'Initializing Y2Mate/YT1s Engine...' });
+        setLoading(true);
+        setVideoData(null);
+        setStatus({ type: 'info', message: 'Querying decentralized network...' });
 
-        try {
-            // Step 1: Initialize the conversion using the Oceansaver API
-            const initRes = await fetch(`https://p.oceansaver.in/ajax/download.php?format=${format}&url=${encodeURIComponent(url)}`);
-            const initData = await initRes.json();
+        let success = false;
 
-            if (initData.success) {
-                setStatus({ type: 'info', message: 'Converting file on remote server...' });
-                setVideoInfo({ title: initData.info.title, image: initData.info.image });
+        // Loop through the decentralized instances until one successfully parses the video
+        for (let i = 0; i < INVIDIOUS_INSTANCES.length; i++) {
+            const instance = INVIDIOUS_INSTANCES[i];
+            setStatus({ type: 'info', message: `Connecting to node ${i + 1}/${INVIDIOUS_INSTANCES.length}...` });
+
+            try {
+                // Fetch the raw deciphered streams from the Invidious API
+                const res = await fetch(`${instance}/api/v1/videos/${videoId}`);
                 
-                // Step 2: Start polling the progress API
-                checkProgress(initData.id);
-            } else {
-                throw new Error("Server rejected the URL. It might be copyrighted music.");
+                if (!res.ok) throw new Error("Node rejected request.");
+                
+                const data = await res.json();
+
+                if (data && data.formatStreams && data.formatStreams.length > 0) {
+                    // Extract the best Video+Audio combined stream (usually 720p or 360p MP4)
+                    const bestVideo = data.formatStreams.find(s => s.resolution === '720p') || data.formatStreams[0];
+                    
+                    // Extract the best Audio-only stream (M4A or WebM)
+                    const bestAudio = data.adaptiveFormats
+                        .filter(s => s.type.includes('audio'))
+                        .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+
+                    setVideoData({
+                        title: data.title,
+                        thumb: data.videoThumbnails && data.videoThumbnails.length > 0 
+                               ? data.videoThumbnails[0].url 
+                               : `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+                        videoUrl: bestVideo ? bestVideo.url : null,
+                        audioUrl: bestAudio ? bestAudio.url : null
+                    });
+
+                    setStatus({ type: 'success', message: 'Deciphering complete! Ready for download.' });
+                    success = true;
+                    break; // Stop the loop on success
+                }
+            } catch (error) {
+                console.warn(`Node ${instance} failed:`, error.message);
+                // Continue to the next instance
             }
-        } catch (error) {
-            setIsProcessing(false);
-            setStatus({ type: 'error', message: error.message || 'API is currently down or blocked.' });
         }
+
+        if (!success) {
+            setStatus({ 
+                type: 'error', 
+                message: 'All network nodes are currently busy. Please try again in a few minutes.' 
+            });
+        }
+        
+        setLoading(false);
     };
 
     return (
         <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-700 w-full">
             <div className="text-center mb-6">
-                <h1 className="text-3xl font-bold text-red-500 mb-2">YT5s API Converter</h1>
-                <p className="text-gray-400 text-sm">Real-time Backend Processing via React</p>
+                <h1 className="text-3xl font-bold text-red-500 mb-2">YT Decentralized Downloader</h1>
+                <p className="text-gray-400 text-sm">React Powered • Invidious Network • No CLI</p>
             </div>
 
             <form onSubmit={handleDownload} className="space-y-4">
@@ -83,88 +102,71 @@ function App() {
                         value={url}
                         onChange={(e) => setUrl(e.target.value)}
                         placeholder="Paste YouTube Link Here..." 
-                        className="w-full p-4 bg-gray-900 border border-gray-600 rounded-lg focus:outline-none focus:border-red-500 text-white"
-                        disabled={isProcessing}
+                        className="w-full p-4 bg-gray-900 border border-gray-600 rounded-lg focus:outline-none focus:border-red-500 text-white transition-colors"
+                        disabled={loading}
                     />
-                </div>
-
-                <div className="flex justify-center space-x-4">
-                    <label className="flex items-center space-x-2 text-gray-300 cursor-pointer">
-                        <input 
-                            type="radio" 
-                            name="format" 
-                            value="mp4" 
-                            checked={format === 'mp4'} 
-                            onChange={(e) => setFormat(e.target.value)}
-                            className="text-red-500 focus:ring-red-500"
-                            disabled={isProcessing}
-                        />
-                        <span>Video (MP4)</span>
-                    </label>
-                    <label className="flex items-center space-x-2 text-gray-300 cursor-pointer">
-                        <input 
-                            type="radio" 
-                            name="format" 
-                            value="mp3" 
-                            checked={format === 'mp3'} 
-                            onChange={(e) => setFormat(e.target.value)}
-                            className="text-red-500 focus:ring-red-500"
-                            disabled={isProcessing}
-                        />
-                        <span>Audio (MP3)</span>
-                    </label>
                 </div>
 
                 <button 
                     type="submit" 
-                    disabled={isProcessing}
+                    disabled={loading}
                     className={`w-full p-4 rounded-lg font-bold text-lg text-white transition-all ${
-                        isProcessing 
+                        loading 
                         ? 'bg-gray-600 cursor-not-allowed' 
-                        : 'bg-red-600 hover:bg-red-700'
+                        : 'bg-red-600 hover:bg-red-700 active:scale-95'
                     }`}
                 >
-                    {isProcessing ? 'Processing...' : 'Start Conversion'}
+                    {loading ? 'Bypassing Security...' : 'Extract Video Links'}
                 </button>
             </form>
 
-            {/* Video Info & Progress Bar */}
-            {isProcessing && (
-                <div className="mt-6">
-                    <p className="text-center text-sm text-yellow-400 mb-2">{status.message}</p>
-                    <div className="w-full bg-gray-900 rounded-full h-4 border border-gray-700 overflow-hidden">
-                        <div 
-                            className="bg-red-600 h-4 rounded-full transition-all duration-500" 
-                            style={{ width: `${Math.min((progress / 1000) * 100, 100)}%` }}
-                        ></div>
-                    </div>
-                </div>
-            )}
-
-            {/* Error Message */}
-            {status.type === 'error' && (
-                <div className="mt-6 p-4 bg-red-900/50 text-red-400 border border-red-800 rounded-lg text-center text-sm">
+            {/* Status Messages */}
+            {status.message && !videoData && (
+                <div className={`mt-6 p-4 rounded-lg text-center text-sm font-medium ${
+                    status.type === 'error' ? 'bg-red-900/50 text-red-400 border border-red-800' :
+                    'bg-blue-900/50 text-blue-400 border border-blue-800'
+                }`}>
                     {status.message}
                 </div>
             )}
 
-            {/* Download Section */}
-            {downloadUrl && (
-                <div className="mt-6 text-center animate-fade-in">
-                    {videoInfo && (
-                        <div className="mb-4">
-                            <img src={videoInfo.image} alt="Thumbnail" className="w-full h-32 object-cover rounded-lg mb-2 opacity-80" />
-                            <p className="text-sm text-gray-300 truncate px-2">{videoInfo.title}</p>
-                        </div>
-                    )}
-                    <a 
-                        href={downloadUrl} 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="block w-full p-4 bg-green-600 hover:bg-green-500 text-white rounded-lg font-bold transition-all shadow-lg"
-                    >
-                        ⬇ Download {format.toUpperCase()}
-                    </a>
+            {/* Results Section */}
+            {videoData && (
+                <div className="mt-6 animate-fade-in border-t border-gray-700 pt-6">
+                    <div className="text-center mb-4">
+                        <img src={videoData.thumb} alt="Thumbnail" className="w-full h-40 object-cover rounded-lg mb-3 shadow-md" />
+                        <h3 className="text-white font-medium text-sm line-clamp-2 px-2">{videoData.title}</h3>
+                    </div>
+
+                    <div className="flex flex-col space-y-3">
+                        {videoData.videoUrl && (
+                            <a 
+                                href={videoData.videoUrl} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="block w-full text-center p-3 bg-green-600 hover:bg-green-500 text-white rounded-lg font-bold transition-all shadow-lg"
+                                download
+                            >
+                                ⬇ Download Video (MP4)
+                            </a>
+                        )}
+                        
+                        {videoData.audioUrl && (
+                            <a 
+                                href={videoData.audioUrl} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="block w-full text-center p-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold transition-all shadow-lg"
+                                download
+                            >
+                                ⬇ Download Audio (M4A)
+                            </a>
+                        )}
+                    </div>
+                    
+                    <p className="text-xs text-gray-500 text-center mt-4">
+                        *Note: If a video opens in a new tab instead of downloading, click the three dots in the corner of the video player and select "Download".
+                    </p>
                 </div>
             )}
         </div>
