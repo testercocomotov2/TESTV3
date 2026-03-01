@@ -1,7 +1,7 @@
 /**
  * SGYT Engine V4 - High Performance Downloader
  * User: SlayerGamerYT
- * Domain: sgyt.is-best.net
+ * Domain: sgyt.is-best.net (or GitHub Pages)
  */
 
 const REPO_OWNER = "testercocomotov2";
@@ -22,12 +22,13 @@ function saveToken() {
     localStorage.setItem('gh_pat', token);
 }
 
-// Custom Terminal Logger
+// Custom Terminal Logger with Type Formatting
 function log(msg, type = '') {
     const term = document.getElementById('terminal');
     const p = document.createElement('p');
     if (type) p.className = type;
-    p.textContent = `> ${msg}`;
+    const time = new Date().toLocaleTimeString();
+    p.textContent = `[${time}] > ${msg}`;
     term.appendChild(p);
     term.scrollTop = term.scrollHeight;
 }
@@ -55,7 +56,7 @@ async function triggerAction() {
     // UI Feedback
     btn.disabled = true;
     downloadArea.style.display = 'none';
-    log("Dispatching signal to GitHub Backend...", "log-info");
+    log("Testing connection to GitHub...", "log-info");
 
     const dispatchUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`;
 
@@ -78,19 +79,30 @@ async function triggerAction() {
             })
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(`Auth Failed: ${errorData.message || response.status}`);
+        // Diagnostic Checks for Specific HTTP Errors
+        if (response.status === 401) {
+            throw new Error("401 Unauthorized: Your GitHub Token is invalid or expired.");
+        } else if (response.status === 404) {
+            throw new Error(`404 Not Found: Check if REPO_OWNER (${REPO_OWNER}) or REPO_NAME (${REPO_NAME}) is correct.`);
+        } else if (response.status === 422) {
+            throw new Error("422 Unprocessable: Verify 'downloader.yml' exists and has 'workflow_dispatch:' enabled.");
+        } else if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        log("Engine Ignited! macOS runner is initializing...", "log-success");
-        log("This usually takes 1-3 minutes depending on file size.");
+        log("Engine Ignited! Check your Actions tab.", "log-success");
+        log("Waiting for backend to process (approx 1-3 mins)...");
         
-        // Wait 10 seconds for GitHub to create the 'run' object before polling
+        // Wait 10 seconds for GitHub to initialize the run object
         setTimeout(() => trackProgress(token), 10000);
 
     } catch (error) {
-        log(error.message, "log-error");
+        // Handle 'Failed to fetch' which is usually a CORS or Network issue
+        if (error.message === "Failed to fetch") {
+            log("DIAGNOSIS: Request Blocked. Check Ad-blockers, VPN, or Repo Path case-sensitivity.", "log-error");
+        } else {
+            log(error.message, "log-error");
+        }
         btn.disabled = false;
     }
 }
@@ -119,13 +131,13 @@ async function trackProgress(token) {
                     document.getElementById('startBtn').disabled = false;
                     
                     if (run.conclusion === 'success') {
-                        log("Success! Fetching your download link...", "log-success");
+                        log("Success! Generating final download link...", "log-success");
                         fetchArtifactLink(token, run.artifacts_url);
                     } else {
-                        log("Engine Error: Check your cookies or YT link quality.", "log-error");
+                        log("Engine Error: Check your cookies or video link availability.", "log-error");
                     }
                 } else {
-                    log(`Processing... (Status: ${run.status})`);
+                    log(`Processing... Status: ${run.status}`);
                 }
             }
         } catch (e) {
@@ -134,7 +146,7 @@ async function trackProgress(token) {
 
         if (attempts >= maxAttempts) {
             clearInterval(checkInterval);
-            log("Process timed out. Check GitHub Actions tab.", "log-error");
+            log("Process timed out. Check GitHub Actions manually.", "log-error");
             document.getElementById('startBtn').disabled = false;
         }
     }, 10000); // Check every 10 seconds
@@ -152,7 +164,7 @@ async function fetchArtifactLink(token, artifactsUrl) {
         
         if (data.artifacts && data.artifacts.length > 0) {
             const artifactId = data.artifacts[0].id;
-            // The standard link to download the artifact zip
+            // Direct link to the artifact archive
             const downloadUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/actions/artifacts/${artifactId}`;
             
             const linkBtn = document.getElementById('artifactLink');
@@ -160,11 +172,11 @@ async function fetchArtifactLink(token, artifactsUrl) {
             linkBtn.textContent = "⬇ Download Zip Archive";
             document.getElementById('downloadArea').style.display = 'block';
             
-            log("File is ready for download!", "log-success");
+            log("Download link is now available!", "log-success");
         } else {
-            log("Error: Action finished but no file was uploaded.", "log-error");
+            log("Error: Workflow finished but no artifact was found.", "log-error");
         }
     } catch (e) {
-        log("Failed to retrieve final download link.", "log-error");
+        log("Failed to retrieve download link via API.", "log-error");
     }
 }
