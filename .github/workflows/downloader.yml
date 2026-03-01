@@ -9,7 +9,7 @@ on:
         default: 'video'
       quality:
         default: '1080'
-      webhook_url:
+      job_id:
         required: true
 
 jobs:
@@ -20,11 +20,12 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Core Tools
+      - name: Install Core Tools & Pusher
         run: |
           brew install ffmpeg deno
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
+          pip3 install pusher
 
       - name: Cookie Authentication
         env:
@@ -44,7 +45,6 @@ jobs:
       - name: Download Media
         run: |
           mkdir output
-          # TV client + cookies beats the bot check
           FLAGS="--cookies final_cookies.txt --extractor-args youtube:player-client=tv,web --no-check-certificates"
           if [ "${{ inputs.format }}" == "audio" ]; then
             yt-dlp $FLAGS -x --audio-format mp3 -o "output/dl_ready.%(ext)s" "${{ inputs.youtube_url }}"
@@ -52,16 +52,34 @@ jobs:
             yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/dl_ready.mp4" "${{ inputs.youtube_url }}"
           fi
 
-      - name: Filebin ASAP Upload
+      - name: Upload to Filebin & Push Real-Time Signal
+        env:
+          JOB_ID: ${{ inputs.job_id }}
         run: |
           FILE_PATH=$(find output -type f | head -n 1)
           FILENAME=$(basename "$FILE_PATH")
           BIN_ID=$(openssl rand -hex 6)
           LINK="https://filebin.net/$BIN_ID/$FILENAME"
+          
+          # 1. Upload file
+          echo "Uploading to Filebin..."
           curl -X POST --data-binary @"$FILE_PATH" "$LINK"
-          # Send link to Webhook.site ASAP
-          curl -X POST -d "$LINK" "${{ inputs.webhook_url }}"
-          echo "SIGNAL_SUCCESS: $LINK"
+          
+          # 2. Fire WebSocket Event directly to your frontend
+          echo "Triggering Real-Time Push to Browser..."
+          python3 -c "
+          import pusher, os
+          pusher_client = pusher.Pusher(
+            app_id='2121894',
+            key='5d1519712c01b0699a83',
+            secret='ca874ed0cda41d8bb1ba',
+            cluster='ap2',
+            ssl=True
+          )
+          # 'job_id' is the channel, 'my-event' is the event, link is in 'message'
+          pusher_client.trigger(os.environ['JOB_ID'], 'my-event', {'message': '$LINK'})
+          print(f'Successfully pushed URL to frontend job: {os.environ.get(\"JOB_ID\")}')
+          "
 
       - name: Cleanup
         if: always()
