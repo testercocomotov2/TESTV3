@@ -9,8 +9,6 @@ on:
         default: 'video'
       quality:
         default: '1080'
-      audio_ext:
-        default: 'mp3'
 
 jobs:
   download_and_convert:
@@ -22,60 +20,37 @@ jobs:
 
       - name: Install Tools
         run: |
-          brew install ffmpeg deno
+          brew install ffmpeg
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
-
-      - name: Cookie Repair
-        env:
-          YT_COOKIES_SECRET: ${{ secrets.YT_COOKIES }}
-        run: |
-          echo "$YT_COOKIES_SECRET" > raw.txt
-          python3 -c "
-          import os
-          if os.path.exists('raw.txt'):
-              with open('raw.txt', 'r') as f, open('final_cookies.txt', 'w') as out:
-                  out.write('# Netscape HTTP Cookie File\n')
-                  for line in f:
-                      p = line.strip().split()
-                      if len(p) == 7: out.write('\t'.join(p) + '\n')
-          "
 
       - name: Download Media
         run: |
           mkdir output
-          FLAGS="--cookies final_cookies.txt --extractor-args youtube:client=ios,android,tv"
-          if [ "${{ inputs.format }}" == "audio" ]; then
-            yt-dlp $FLAGS -x --audio-format ${{ inputs.audio_ext }} -o "output/%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
-          else
-            yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
-          fi
+          # Download with a fixed filename to make the URL predictable
+          yt-dlp -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/dl_engine.mp4" "${{ inputs.youtube_url }}"
 
       - name: Private TmpFiles Upload
         run: |
-          # 1. Rename to avoid API rejection of bold characters
-          ORIGINAL_PATH=$(find output -type f | head -n 1)
-          EXTENSION="${ORIGINAL_PATH##*.}"
-          SAFE_PATH="output/dl_engine.$EXTENSION"
-          mv "$ORIGINAL_PATH" "$SAFE_PATH"
-
-          echo "Uploading to tmpfiles.org..."
-
-          # 2. Upload and use Python to safely convert View URL to Download URL
-          RESPONSE=$(curl -s -F "file=@$SAFE_PATH" https://tmpfiles.org/api/v1/upload)
+          FILE_PATH="output/dl_engine.mp4"
+          echo "Starting Upload to TmpFiles..."
           
+          # Upload to API
+          RESPONSE=$(curl -s -F "file=@$FILE_PATH" https://tmpfiles.org/api/v1/upload)
+          
+          # Force formatting to the /dl/ direct format
           python3 -c "
           import sys, json
           try:
               data = json.loads(sys.stdin.read())
-              url = data['data']['url']
-              dl_url = url.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/')
-              print(f'TMP_LINK: {dl_url}')
-          except Exception as e:
-              # Fallback if JSON is weird
-              print('ERROR: JSON was unreadable')
+              raw_url = data['data']['url']
+              # Convert view URL to direct download URL
+              dl_url = raw_url.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/')
+              print(f'\nDOWNLOAD_LINK_MARKER: {dl_url}\n')
+          except:
+              print('UPLOAD_FAILED')
           " <<< "$RESPONSE"
 
       - name: Cleanup
         if: always()
-        run: rm -rf output raw.txt final_cookies.txt
+        run: rm -rf output
