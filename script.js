@@ -1,7 +1,7 @@
 /**
- * SGYT Engine V21 - Cookie & Runtime Patch
+ * SGYT Engine V22 - Extractor Sync
  * User: SlayerGamerYT
- * Repo: testercocomotov2/TESTV3
+ * Domain: sgyt.is-best.net
  */
 
 const REPO_OWNER = "testercocomotov2";
@@ -41,7 +41,7 @@ async function triggerAction() {
 
     btn.disabled = true;
     document.getElementById('downloadArea').style.display = 'none';
-    log("Engine Ignited!", "log-info");
+    log("Engine Ignited! Bypassing restrictions...", "log-info");
 
     try {
         const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
@@ -63,7 +63,7 @@ async function triggerAction() {
         });
 
         if (response.status === 204) {
-            log("Backend processing. Bypassing bot detection...", "log-success");
+            log("Backend processing. Monitoring live stream...", "log-success");
             trackLiveLogs(token);
         } else {
             const err = await response.json();
@@ -106,14 +106,14 @@ async function trackLiveLogs(token) {
                     clearInterval(interval);
                     const cleanUrl = match[0].trim();
                     log("--- DOWNLOAD READY ---", "log-success");
-                    log(`<a href="${cleanUrl}" target="_blank" style="color:#00ff00; font-weight:bold;">🚀 DOWNLOAD FILE NOW</a>`, "log-success");
+                    log(`<a href="${cleanUrl}" target="_blank" style="color:#00ff00; font-weight:bold;">🚀 DOWNLOAD NOW</a>`, "log-success");
                     
                     document.getElementById('artifactLink').href = cleanUrl;
                     document.getElementById('downloadArea').style.display = 'block';
                     document.getElementById('startBtn').disabled = false;
                 } else if (run.status === 'completed' && run.conclusion !== 'success') {
                     clearInterval(interval);
-                    log("Engine Crash: Bot Detection or Cookie Error.", "log-error");
+                    log("Engine Crash: Check YouTube Cookies.", "log-error");
                     document.getElementById('startBtn').disabled = false;
                 }
             }
