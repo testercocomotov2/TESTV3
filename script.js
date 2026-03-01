@@ -1,5 +1,5 @@
 /**
- * SGYT Engine V12 - Triple Cloud Edition (MediaFire/PixelDrain/File.io)
+ * SGYT Engine V12.1 - Triple Cloud (PixelDrain .dev Fix)
  * User: SlayerGamerYT
  * Repo: testercocomotov2/TESTV3
  */
@@ -89,14 +89,14 @@ async function trackProgress(token) {
                 document.getElementById('startBtn').disabled = false;
                 
                 if (run.conclusion === 'success') {
-                    log("SUCCESS: Cloud links generated!", "log-success");
+                    log("SUCCESS: Multi-cloud links generated!", "log-success");
                     const summaryUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/actions/runs/${run.id}`;
                     const linkBtn = document.getElementById('artifactLink');
                     linkBtn.href = summaryUrl;
                     linkBtn.textContent = "🔗 Get Private Download Links";
                     document.getElementById('downloadArea').style.display = 'block';
                 } else {
-                    log("Engine Failed. Check your Actions logs for the specific error.", "log-error");
+                    log("Engine Failed. Check GitHub logs.", "log-error");
                 }
             } else {
                 log(`Processing... (Status: ${run ? run.status : 'starting'})`);
@@ -105,7 +105,7 @@ async function trackProgress(token) {
 
         if (attempts >= 150) {
             clearInterval(checkInterval);
-            log("Timeout: Process taking too long.", "log-error");
+            log("Timeout reached.", "log-error");
             document.getElementById('startBtn').disabled = false;
         }
     }, 10000);
