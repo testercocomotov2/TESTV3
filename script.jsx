@@ -1,13 +1,18 @@
 const { useState } = React;
 
-// A decentralized list of open-source Invidious proxy servers
+// Invidious API instances
 const INVIDIOUS_INSTANCES = [
     "https://vid.puffyan.us",
-    "https://yewtu.be",
     "https://invidious.jing.rocks",
     "https://invidious.nerdvpn.de",
-    "https://invidious.slipfox.xyz",
     "https://iv.melmac.space"
+];
+
+// CORS Proxies to bypass browser security blocks
+const CORS_PROXIES = [
+    "https://api.allorigins.win/get?url=",
+    "https://corsproxy.io/?",
+    "https://api.codetabs.com/v1/proxy?quest="
 ];
 
 function App() {
@@ -17,7 +22,6 @@ function App() {
     const [videoData, setVideoData] = useState(null);
 
     const extractVideoId = (link) => {
-        // Regex to handle standard links, youtu.be, and shorts
         const match = link.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/|.*shorts\/))([^&?]+)/);
         return match ? match[1] : null;
     };
@@ -27,61 +31,76 @@ function App() {
         
         const videoId = extractVideoId(url);
         if (!videoId) {
-            setStatus({ type: 'error', message: 'Invalid YouTube URL. Please check the link.' });
+            setStatus({ type: 'error', message: 'Invalid YouTube URL.' });
             return;
         }
 
         setLoading(true);
         setVideoData(null);
-        setStatus({ type: 'info', message: 'Querying decentralized network...' });
+        setStatus({ type: 'info', message: 'Connecting to proxy network...' });
 
         let success = false;
 
-        // Loop through the decentralized instances until one successfully parses the video
-        for (let i = 0; i < INVIDIOUS_INSTANCES.length; i++) {
-            const instance = INVIDIOUS_INSTANCES[i];
-            setStatus({ type: 'info', message: `Connecting to node ${i + 1}/${INVIDIOUS_INSTANCES.length}...` });
+        // Loop through Proxies and Instances to guarantee a connection
+        for (let p = 0; p < CORS_PROXIES.length; p++) {
+            if (success) break;
+            const proxy = CORS_PROXIES[p];
 
-            try {
-                // Fetch the raw deciphered streams from the Invidious API
-                const res = await fetch(`${instance}/api/v1/videos/${videoId}`);
+            for (let i = 0; i < INVIDIOUS_INSTANCES.length; i++) {
+                if (success) break;
+                const instance = INVIDIOUS_INSTANCES[i];
                 
-                if (!res.ok) throw new Error("Node rejected request.");
-                
-                const data = await res.json();
+                setStatus({ type: 'info', message: `Routing via Proxy ${p+1} to Node ${i+1}...` });
 
-                if (data && data.formatStreams && data.formatStreams.length > 0) {
-                    // Extract the best Video+Audio combined stream (usually 720p or 360p MP4)
-                    const bestVideo = data.formatStreams.find(s => s.resolution === '720p') || data.formatStreams[0];
+                try {
+                    // The full API URL we want to hit
+                    const targetUrl = encodeURIComponent(`${instance}/api/v1/videos/${videoId}`);
                     
-                    // Extract the best Audio-only stream (M4A or WebM)
-                    const bestAudio = data.adaptiveFormats
-                        .filter(s => s.type.includes('audio'))
-                        .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+                    // Fetch through the proxy
+                    const res = await fetch(`${proxy}${targetUrl}`);
+                    
+                    if (!res.ok) throw new Error("Proxy connection failed.");
+                    
+                    // Proxies wrap responses differently. allorigins puts it in `contents`
+                    let data;
+                    if (proxy.includes('allorigins')) {
+                        const jsonWrapper = await res.json();
+                        data = JSON.parse(jsonWrapper.contents);
+                    } else {
+                        data = await res.json();
+                    }
 
-                    setVideoData({
-                        title: data.title,
-                        thumb: data.videoThumbnails && data.videoThumbnails.length > 0 
-                               ? data.videoThumbnails[0].url 
-                               : `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-                        videoUrl: bestVideo ? bestVideo.url : null,
-                        audioUrl: bestAudio ? bestAudio.url : null
-                    });
+                    if (data && data.formatStreams && data.formatStreams.length > 0) {
+                        const bestVideo = data.formatStreams.find(s => s.resolution === '720p') || data.formatStreams[0];
+                        
+                        const bestAudio = data.adaptiveFormats
+                            ? data.adaptiveFormats
+                                .filter(s => s.type.includes('audio'))
+                                .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0]
+                            : null;
 
-                    setStatus({ type: 'success', message: 'Deciphering complete! Ready for download.' });
-                    success = true;
-                    break; // Stop the loop on success
+                        setVideoData({
+                            title: data.title,
+                            thumb: data.videoThumbnails && data.videoThumbnails.length > 0 
+                                   ? data.videoThumbnails[0].url 
+                                   : `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+                            videoUrl: bestVideo ? bestVideo.url : null,
+                            audioUrl: bestAudio ? bestAudio.url : null
+                        });
+
+                        setStatus({ type: 'success', message: 'Stream captured! Ready for download.' });
+                        success = true;
+                    }
+                } catch (error) {
+                    console.warn(`Failed Proxy ${p+1} -> Node ${i+1}:`, error.message);
                 }
-            } catch (error) {
-                console.warn(`Node ${instance} failed:`, error.message);
-                // Continue to the next instance
             }
         }
 
         if (!success) {
             setStatus({ 
                 type: 'error', 
-                message: 'All network nodes are currently busy. Please try again in a few minutes.' 
+                message: 'All proxy nodes blocked the request. Try again later.' 
             });
         }
         
@@ -89,10 +108,10 @@ function App() {
     };
 
     return (
-        <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-700 w-full">
+        <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-700 w-full max-w-md mx-auto">
             <div className="text-center mb-6">
-                <h1 className="text-3xl font-bold text-red-500 mb-2">YT Decentralized Downloader</h1>
-                <p className="text-gray-400 text-sm">React Powered • Invidious Network • No CLI</p>
+                <h1 className="text-3xl font-bold text-red-500 mb-2">Proxy Downloader</h1>
+                <p className="text-gray-400 text-sm">CORS Bypass • React • GitHub Pages</p>
             </div>
 
             <form onSubmit={handleDownload} className="space-y-4">
@@ -116,11 +135,10 @@ function App() {
                         : 'bg-red-600 hover:bg-red-700 active:scale-95'
                     }`}
                 >
-                    {loading ? 'Bypassing Security...' : 'Extract Video Links'}
+                    {loading ? 'Bypassing CORS...' : 'Extract Video Links'}
                 </button>
             </form>
 
-            {/* Status Messages */}
             {status.message && !videoData && (
                 <div className={`mt-6 p-4 rounded-lg text-center text-sm font-medium ${
                     status.type === 'error' ? 'bg-red-900/50 text-red-400 border border-red-800' :
@@ -130,7 +148,6 @@ function App() {
                 </div>
             )}
 
-            {/* Results Section */}
             {videoData && (
                 <div className="mt-6 animate-fade-in border-t border-gray-700 pt-6">
                     <div className="text-center mb-4">
@@ -145,7 +162,6 @@ function App() {
                                 target="_blank" 
                                 rel="noreferrer"
                                 className="block w-full text-center p-3 bg-green-600 hover:bg-green-500 text-white rounded-lg font-bold transition-all shadow-lg"
-                                download
                             >
                                 ⬇ Download Video (MP4)
                             </a>
@@ -157,16 +173,11 @@ function App() {
                                 target="_blank" 
                                 rel="noreferrer"
                                 className="block w-full text-center p-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold transition-all shadow-lg"
-                                download
                             >
                                 ⬇ Download Audio (M4A)
                             </a>
                         )}
                     </div>
-                    
-                    <p className="text-xs text-gray-500 text-center mt-4">
-                        *Note: If a video opens in a new tab instead of downloading, click the three dots in the corner of the video player and select "Download".
-                    </p>
                 </div>
             )}
         </div>
