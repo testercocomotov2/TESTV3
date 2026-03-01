@@ -3,40 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YouTube Converter - Advanced</title>
+    <title>Standalone YouTube Converter</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <main class="youtube-converter">
-        <h1>YouTube Video Downloader & Converter</h1>
-        <form id="converter-form">
-            <label for="video-url">YouTube Video URL:</label>
-            <input type="url" id="video-url" name="video-url" placeholder="Paste YouTube link here" required>
+    <div class="container">
+        <h1>YT Converter V3</h1>
+        <p>Fast, free, and ad-free downloads</p>
+        
+        <div class="input-group">
+            <input type="text" id="videoUrl" placeholder="Paste YouTube link here..." autocomplete="off">
+            <button id="downloadBtn">Convert</button>
+        </div>
+        
+        <div class="options">
+            <label>
+                <input type="checkbox" id="audioOnly"> Audio Only (MP3)
+            </label>
+        </div>
 
-            <label for="format-type">Download Format:</label>
-            <select id="format-type" name="format-type" required>
-                <option value="mp3">Audio (MP3)</option>
-                <option value="mp4">Video (MP4)</option>
-            </select>
-            
-            <button type="submit" id="convert-btn">Convert & Download</button>
-        </form>
-        <div id="status-message"></div>
-        <section id="result-section" class="hidden">
-            <h2>Download Ready</h2>
-            <a id="download-link" href="#" download>Download File</a>
-        </section>
-        <section id="error-section" class="hidden">
-            <h2>Error</h2>
-            <pre id="error-message"></pre>
-        </section>
-        <footer>
-            <small>
-                Powered by <a href="https://ytdl-org.github.io/youtube-dl/" target="_blank">yt-dlp</a> / <a href="https://y2mate.com" target="_blank">y2mate</a> APIs.<br>
-                <span class="note">This project is for educational demonstration purposes only.</span>
-            </small>
-        </footer>
-    </main>
+        <div id="status" class="status"></div>
+        <div id="result" class="result"></div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>
