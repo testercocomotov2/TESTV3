@@ -1,57 +1,104 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SGYT Engine | V45 (Zero Polling)</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-    <script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
-</head>
-<body>
+/**
+ * SGYT Engine V45 - Zero Polling WebSocket Client
+ * User: SlayerGamerYT
+ */
 
-    <div class="downloader-container">
-        <h1 class="brand-title">SGYT <span>Engine</span></h1>
-        <p class="subtitle">Convert & Download Videos Instantly (Live Push)</p>
+const REPO_OWNER = "testercocomotov2";
+const REPO_NAME = "TESTV3";
+const WORKFLOW_FILE = "downloader.yml";
+const BRANCH = "main"; 
 
-        <div class="token-box">
-            <input type="password" id="ghToken" placeholder="🔒 Enter GitHub PAT..." onchange="saveToken()">
-        </div>
+// Tumhari exact Pusher Keys
+const PUSHER_KEY = "5d1519712c01b0699a83";
+const PUSHER_CLUSTER = "ap2"; 
 
-        <div class="input-group">
-            <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-            <input type="text" id="ytUrl" placeholder="Paste Your YouTube URL..." autocomplete="off">
-        </div>
+const btn = document.getElementById('startBtn');
+const terminal = document.getElementById('terminal');
 
-        <div class="action-bar">
-            <select id="mode" class="custom-select">
-                <option value="video">MP4</option>
-                <option value="audio">MP3</option>
-            </select>
-            
-            <select id="quality" class="custom-select">
-                <option value="2160">4K</option>
-                <option value="1440">2K</option>
-                <option value="1080" selected>1080p</option>
-                <option value="720">720p</option>
-            </select>
+window.onload = () => {
+    const saved = localStorage.getItem('gh_pat');
+    if (saved) document.getElementById('ghToken').value = saved;
+};
 
-            <button id="startBtn" onclick="triggerAction()">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                <span>Download</span>
-            </button>
-        </div>
+function saveToken() {
+    localStorage.setItem('gh_pat', document.getElementById('ghToken').value.trim());
+}
 
-        <div id="downloadArea" class="download-ready">
-            <p>🎉 File is ready to save!</p>
-            <a id="artifactLink" target="_blank">Download File</a>
-        </div>
+function log(msg, isError = false) {
+    const p = document.createElement('p');
+    if (isError) p.style.color = "#ef4444"; 
+    p.innerHTML = `<span class="prompt">~</span> ${msg}`;
+    terminal.prepend(p);
+    if (terminal.children.length > 6) terminal.lastChild.remove();
+}
 
-        <div id="terminal" class="mini-terminal">
-            <p><span class="prompt">~</span> Pusher Socket Ready, SlayerGamerYT.</p>
-        </div>
-    </div>
+async function triggerAction() {
+    const token = document.getElementById('ghToken').value.trim();
+    const url = document.getElementById('ytUrl').value.trim();
+    const mode = document.getElementById('mode').value;
+    const quality = document.getElementById('quality').value;
 
-    <script src="script.js"></script>
-</body>
-</html>
+    if (!token || !url) { log("Token ya URL missing hai bhai!", true); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> <span>Processing...</span>';
+    document.getElementById('downloadArea').style.display = 'none';
+    
+    // Unique ID for this specific download trigger
+    const jobId = "job-" + Math.random().toString(36).substr(2, 9);
+    
+    // Initialize Pusher Listener
+    Pusher.logToConsole = true; // Debugging ke liye (Browser console mein logs aayenge)
+    const pusher = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
+    const channel = pusher.subscribe(jobId);
+    
+    // Backend se "my-event" ka wait karna
+    channel.bind('my-event', function(data) {
+        showFinalLink(data.message); 
+        pusher.unsubscribe(jobId); // Kaam hone ke baad connection band
+    });
+
+    log(`Job [${jobId}] Created. GitHub ko trigger kar rahe hain...`);
+
+    try {
+        const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
+            method: 'POST',
+            headers: { 
+                'Authorization': `Bearer ${token}`, 
+                'Accept': 'application/vnd.github.v3+json', 
+                'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({ 
+                ref: BRANCH, 
+                inputs: { youtube_url: url, format: mode, quality: quality, job_id: jobId } 
+            })
+        });
+
+        if (response.status === 204) {
+            log("Backend Started! Socket connection live, link ka wait ho raha hai...");
+        } else {
+            throw new Error("GitHub ne workflow trigger reject kar diya.");
+        }
+    } catch (e) {
+        log(e.message, true);
+        resetButton();
+    }
+}
+
+function showFinalLink(url) {
+    log("🚀 BOOM! Link Received Live.");
+    resetButton();
+    
+    const area = document.getElementById('downloadArea');
+    const link = document.getElementById('artifactLink');
+    
+    link.href = url;
+    area.style.display = 'block';
+    
+    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+}
+
+function resetButton() {
+    btn.disabled = false;
+    btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Download Again</span>`;
+}
