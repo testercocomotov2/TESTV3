@@ -30,30 +30,38 @@ jobs:
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
 
-      - name: Sanitize and Load Cookies
+      - name: Repair Android Clipboard Cookies
         env:
           YT_COOKIES_SECRET: ${{ secrets.YT_COOKIES }}
         run: |
-          # 1. Write the raw secret to a file
+          # Write the raw secret from GitHub into a temporary file
           echo "$YT_COOKIES_SECRET" > raw_cookies.txt
           
-          # 2. Strip Android/Windows line breaks to make it Unix compatible
-          tr -d '\r' < raw_cookies.txt > fixed_cookies.txt
+          # Run a mini Python script to convert Android spaces back into Netscape Tabs
+          python3 -c "
+          with open('raw_cookies.txt', 'r') as f:
+              lines = f.readlines()
           
-          # 3. Force the Netscape header if it is missing
-          if ! head -n 1 fixed_cookies.txt | grep -q "# Netscape HTTP Cookie File"; then
-            echo "# Netscape HTTP Cookie File" > final_cookies.txt
-            cat fixed_cookies.txt >> final_cookies.txt
-          else
-            cp fixed_cookies.txt final_cookies.txt
-          fi
+          with open('final_cookies.txt', 'w') as f:
+              f.write('# Netscape HTTP Cookie File\n')
+              for line in lines:
+                  line = line.strip()
+                  # Skip empty lines or existing headers
+                  if not line or line.startswith('#'): 
+                      continue
+                  # Split the line by spaces into exactly 7 columns
+                  parts = line.split(None, 6)
+                  # Rejoin the columns using real Tab characters
+                  if len(parts) == 7:
+                      f.write('\t'.join(parts) + '\n')
+          "
 
       - name: Download Media
         run: |
           mkdir output
           cd output
           
-          # Pass the perfectly formatted cookie file and client spoofing
+          # Pass the repaired cookie file
           SPOOF_FLAGS="--cookies ../final_cookies.txt --extractor-args youtube:client=ios,android,tv"
 
           if [ "${{ inputs.format }}" == "audio" ]; then
@@ -70,4 +78,3 @@ jobs:
           name: Downloaded_Media
           path: output/*
           retention-days: 1
-          
