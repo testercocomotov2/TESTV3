@@ -9,6 +9,8 @@ on:
         default: 'video'
       quality:
         default: '1080'
+      audio_ext:
+        default: 'mp3'
 
 jobs:
   download_and_convert:
@@ -27,26 +29,28 @@ jobs:
       - name: Download Media
         run: |
           mkdir output
-          # Download with a fixed filename to make the URL predictable
-          yt-dlp -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/dl_engine.mp4" "${{ inputs.youtube_url }}"
+          if [ "${{ inputs.format }}" == "audio" ]; then
+            yt-dlp -x --audio-format ${{ inputs.audio_ext }} -o "output/dl_engine.%(ext)s" "${{ inputs.youtube_url }}"
+          else
+            yt-dlp -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/dl_engine.mp4" "${{ inputs.youtube_url }}"
+          fi
 
       - name: Private TmpFiles Upload
         run: |
-          FILE_PATH="output/dl_engine.mp4"
-          echo "Starting Upload to TmpFiles..."
+          FILE_PATH=$(find output -type f | head -n 1)
+          FILENAME=$(basename "$FILE_PATH")
           
-          # Upload to API
+          # Upload and convert to Direct Download format
           RESPONSE=$(curl -s -F "file=@$FILE_PATH" https://tmpfiles.org/api/v1/upload)
           
-          # Force formatting to the /dl/ direct format
           python3 -c "
           import sys, json
           try:
               data = json.loads(sys.stdin.read())
-              raw_url = data['data']['url']
-              # Convert view URL to direct download URL
-              dl_url = raw_url.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/')
-              print(f'\nDOWNLOAD_LINK_MARKER: {dl_url}\n')
+              url = data['data']['url']
+              # Format to: https://tmpfiles.org/dl/ID/filename
+              dl_url = url.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/') + '/$FILENAME'
+              print(f'\n\nSUCCESS_LINK: {dl_url}\n\n')
           except:
               print('UPLOAD_FAILED')
           " <<< "$RESPONSE"
