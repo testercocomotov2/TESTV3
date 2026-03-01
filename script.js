@@ -1,5 +1,5 @@
 /**
- * SGYT Engine V30 - Log Bombardment Edition
+ * SGYT Engine V32 - ASAP Signal Bridge (Webhook.site)
  * User: SlayerGamerYT
  * Domain: sgyt.is-best.net
  */
@@ -9,10 +9,19 @@ const REPO_NAME = "TESTV3";
 const WORKFLOW_FILE = "downloader.yml";
 const BRANCH = "main"; 
 
+// YOUR UNIQUE WEBHOOK TOKEN
+const WEBHOOK_TOKEN = "1a9bc849-a393-458c-86a8-4d78aa4bb7af";
+const SIGNAL_URL = `https://webhook.site/${WEBHOOK_TOKEN}`;
+const POLL_API = `https://webhook.site/token/${WEBHOOK_TOKEN}/requests?sorting=newest`;
+
 window.onload = () => {
     const saved = localStorage.getItem('gh_pat');
     if (saved) document.getElementById('ghToken').value = saved;
 };
+
+function saveToken() {
+    localStorage.setItem('gh_pat', document.getElementById('ghToken').value.trim());
+}
 
 function log(msg, type = '') {
     const term = document.getElementById('terminal');
@@ -37,18 +46,26 @@ async function triggerAction() {
 
     btn.disabled = true;
     document.getElementById('downloadArea').style.display = 'none';
-    log("Igniting Engine V30 (Brute Force Mode)...", "log-info");
+    log("Igniting Engine V32 (ASAP Mode)...", "log-info");
 
     try {
         const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ref: BRANCH, inputs: { youtube_url: url, format: mode, quality: quality, audio_ext: "mp3" } })
+            body: JSON.stringify({ 
+                ref: BRANCH, 
+                inputs: { 
+                    youtube_url: url, 
+                    format: mode, 
+                    quality: quality, 
+                    webhook_url: SIGNAL_URL 
+                } 
+            })
         });
 
         if (response.status === 204) {
-            log("Backend Live. Bruteforcing logs...", "log-success");
-            turboTrack(token);
+            log("Backend Live. Waiting for Signal...", "log-success");
+            startSignalListener();
         } else {
             const err = await response.json();
             throw new Error(err.message || response.status);
@@ -59,40 +76,28 @@ async function triggerAction() {
     }
 }
 
-async function turboTrack(token) {
+async function startSignalListener() {
     let linkFound = false;
+    
+    // Poll the Webhook API every 1000ms for instant response
     const interval = setInterval(async () => {
         if (linkFound) return;
 
         try {
-            const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/runs?per_page=1`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetch(POLL_API);
             const data = await res.json();
-            const run = data.workflow_runs[0];
+            
+            if (data.data && data.data.length > 0) {
+                // Check the newest request content
+                const lastRequest = data.data[0];
+                const content = lastRequest.content;
 
-            if (!run || run.status === 'queued') return;
-
-            const jobsRes = await fetch(run.jobs_url, { headers: { 'Authorization': `Bearer ${token}` } });
-            const jobsData = await jobsRes.json();
-            const job = jobsData.jobs[0];
-
-            if (job) {
-                const logsRes = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/jobs/${job.id}/logs`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const logContent = await logsRes.text();
-                
-                // BRUTE FORCE REGEX: Finds the Filebin link regardless of noise
-                const regex = /https:\/\/filebin\.net\/[a-z0-9]+\/[a-z0-9_.]+/gi;
-                const matches = logContent.match(regex);
-                
-                if (matches && matches.length > 0) {
+                if (content && content.includes("filebin.net")) {
                     linkFound = true;
                     clearInterval(interval);
-                    const dlUrl = matches[matches.length - 1].trim(); // Take the last one (most likely complete)
-                    
-                    log("--- LINK CAPTURED ---", "log-success");
+                    const dlUrl = content.trim();
+
+                    log("--- SIGNAL SNIPED (ASAP) ---", "log-success");
                     log(`<a href="${dlUrl}" target="_blank" style="color:#00ff00; font-weight:bold; font-size:1.1em;">🚀 DOWNLOAD NOW</a>`, "log-success");
                     
                     document.getElementById('artifactLink').href = dlUrl;
@@ -100,6 +105,6 @@ async function turboTrack(token) {
                     document.getElementById('startBtn').disabled = false;
                 }
             }
-        } catch (e) { console.warn("Syncing..."); }
-    }, 2000);
+        } catch (e) { console.warn("Polling Webhook Signal..."); }
+    }, 1000); // 1-second ultra-fast poll
 }
