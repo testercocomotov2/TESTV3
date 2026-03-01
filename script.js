@@ -1,5 +1,5 @@
 /**
- * SGYT Engine V11 - MediaFire Private Edition
+ * SGYT Engine V11.1 - MediaFire & PEP 668 Fix
  * User: SlayerGamerYT
  * Repo: testercocomotov2/TESTV3
  */
@@ -61,7 +61,7 @@ async function triggerAction() {
         });
 
         if (response.status === 204) {
-            log("Backend processing. Uploading to MediaFire...", "log-success");
+            log("Backend processing. Uploading soon...", "log-success");
             setTimeout(() => trackProgress(token), 20000);
         } else {
             const err = await response.json();
@@ -89,14 +89,14 @@ async function trackProgress(token) {
                 document.getElementById('startBtn').disabled = false;
                 
                 if (run.conclusion === 'success') {
-                    log("SUCCESS: MediaFire link generated!", "log-success");
+                    log("SUCCESS: Media link generated!", "log-success");
                     const summaryUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/actions/runs/${run.id}`;
                     const linkBtn = document.getElementById('artifactLink');
                     linkBtn.href = summaryUrl;
-                    linkBtn.textContent = "🔗 Get MediaFire Link";
+                    linkBtn.textContent = "🔗 Get Private Download Link";
                     document.getElementById('downloadArea').style.display = 'block';
                 } else {
-                    log("Engine Failed. MediaFire upload or YouTube download crashed.", "log-error");
+                    log("Engine Failed. Check your Actions logs.", "log-error");
                 }
             } else {
                 log(`Status: ${run ? run.status : 'starting'}...`);
@@ -105,7 +105,7 @@ async function trackProgress(token) {
 
         if (attempts >= 150) {
             clearInterval(checkInterval);
-            log("Timeout: MediaFire is taking too long.", "log-error");
+            log("Timeout reached.", "log-error");
             document.getElementById('startBtn').disabled = false;
         }
     }, 10000);
