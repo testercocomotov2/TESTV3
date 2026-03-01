@@ -1,5 +1,5 @@
 /**
- * SGYT Engine V32 - ASAP Signal Bridge (Webhook.site)
+ * SGYT Engine V33 - Input Sync + Webhook ASAP
  * User: SlayerGamerYT
  * Domain: sgyt.is-best.net
  */
@@ -40,13 +40,13 @@ async function triggerAction() {
     const btn = document.getElementById('startBtn');
 
     if (!token || !url) {
-        log("Error: Missing credentials.", "log-error");
+        log("Error: Token/URL missing.", "log-error");
         return;
     }
 
     btn.disabled = true;
     document.getElementById('downloadArea').style.display = 'none';
-    log("Igniting Engine V32 (ASAP Mode)...", "log-info");
+    log("Igniting Engine V33...", "log-info");
 
     try {
         const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
@@ -64,7 +64,7 @@ async function triggerAction() {
         });
 
         if (response.status === 204) {
-            log("Backend Live. Waiting for Signal...", "log-success");
+            log("Backend started. Monitoring Webhook Signal...", "log-success");
             startSignalListener();
         } else {
             const err = await response.json();
@@ -79,7 +79,6 @@ async function triggerAction() {
 async function startSignalListener() {
     let linkFound = false;
     
-    // Poll the Webhook API every 1000ms for instant response
     const interval = setInterval(async () => {
         if (linkFound) return;
 
@@ -88,7 +87,6 @@ async function startSignalListener() {
             const data = await res.json();
             
             if (data.data && data.data.length > 0) {
-                // Check the newest request content
                 const lastRequest = data.data[0];
                 const content = lastRequest.content;
 
@@ -98,13 +96,13 @@ async function startSignalListener() {
                     const dlUrl = content.trim();
 
                     log("--- SIGNAL SNIPED (ASAP) ---", "log-success");
-                    log(`<a href="${dlUrl}" target="_blank" style="color:#00ff00; font-weight:bold; font-size:1.1em;">🚀 DOWNLOAD NOW</a>`, "log-success");
+                    log(`<a href="${dlUrl}" target="_blank" style="color:#00ff00; font-weight:bold;">🚀 DOWNLOAD FILE</a>`, "log-success");
                     
                     document.getElementById('artifactLink').href = dlUrl;
                     document.getElementById('downloadArea').style.display = 'block';
                     document.getElementById('startBtn').disabled = false;
                 }
             }
-        } catch (e) { console.warn("Polling Webhook Signal..."); }
-    }, 1000); // 1-second ultra-fast poll
+        } catch (e) { console.warn("Polling Signal..."); }
+    }, 2000); 
 }
