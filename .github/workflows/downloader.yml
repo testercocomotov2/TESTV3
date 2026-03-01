@@ -22,7 +22,7 @@ jobs:
 
       - name: Install Tools
         run: |
-          brew install ffmpeg deno
+          brew install ffmpeg deno jq
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
 
@@ -53,23 +53,38 @@ jobs:
 
       - name: Upload to GoFile (Private)
         run: |
-          # Find the file name
-          FILE=$(ls output | head -n 1)
-          echo "Uploading $FILE to GoFile..."
+          # Use find to get the file to avoid shell expansion issues with special characters
+          FILE_PATH=$(find output -type f | head -n 1)
+          FILENAME=$(basename "$FILE_PATH")
+          echo "Uploading: $FILENAME"
           
-          # Get the best server for upload
-          SERVER=$(curl -s https://api.gofile.io/getServer | jq -r '.data.server')
+          # 1. Get the best server with error handling
+          SERVER_DATA=$(curl -s https://api.gofile.io/getServer)
+          SERVER=$(echo "$SERVER_DATA" | jq -r '.data.server // empty')
           
-          # Upload and capture the response
-          RESPONSE=$(curl -F "file=@output/$FILE" "https://$SERVER.gofile.io/uploadFile")
+          if [ -z "$SERVER" ]; then
+            echo "Error: Could not get GoFile server. Response: $SERVER_DATA"
+            exit 1
+          fi
           
-          # Extract the download page URL
-          DOWNLOAD_LINK=$(echo $RESPONSE | jq -r '.data.downloadPage')
+          # 2. Upload with specific multipart form handling
+          echo "Uploading to server: $SERVER"
+          UPLOAD_RESPONSE=$(curl -F "file=@$FILE_PATH" "https://$SERVER.gofile.io/uploadFile")
           
+          # 3. Extract Link
+          DOWNLOAD_LINK=$(echo "$UPLOAD_RESPONSE" | jq -r '.data.downloadPage // empty')
+          
+          if [ -z "$DOWNLOAD_LINK" ] || [ "$DOWNLOAD_LINK" == "null" ]; then
+            echo "Upload failed. Response: $UPLOAD_RESPONSE"
+            exit 1
+          fi
+
           echo "--------------------------------------------------"
           echo "PRIVATE DOWNLOAD LINK: $DOWNLOAD_LINK"
           echo "--------------------------------------------------"
           
-          # Add to GitHub Step Summary so you can see it easily
-          echo "### 🚀 Your Download is Ready!" >> $GITHUB_STEP_SUMMARY
+          # Add to GitHub Step Summary for easy one-click access
+          echo "### 🚀 SlayerGamerYT: Your Download is Ready!" >> $GITHUB_STEP_SUMMARY
+          echo "Your file **$FILENAME** has been uploaded privately." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "[Click here to Download]($DOWNLOAD_LINK)" >> $GITHUB_STEP_SUMMARY
