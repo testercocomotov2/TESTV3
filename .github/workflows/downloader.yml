@@ -20,17 +20,39 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Core Tools
+      - name: Install Tools
         run: |
           brew install ffmpeg deno
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
 
+      - name: Cookie Authentication
+        env:
+          YT_COOKIES_SECRET: ${{ secrets.YT_COOKIES }}
+        run: |
+          # Convert secret back to Netscape format for yt-dlp
+          echo "$YT_COOKIES_SECRET" > raw.txt
+          python3 -c "
+          import os
+          if os.path.exists('raw.txt'):
+              with open('raw.txt', 'r') as f, open('final_cookies.txt', 'w') as out:
+                  out.write('# Netscape HTTP Cookie File\n')
+                  for line in f:
+                      p = line.strip().split()
+                      if len(p) == 7: out.write('\t'.join(p) + '\n')
+          "
+
       - name: Download Media
         run: |
           mkdir output
-          # Direct best quality download without extra delays
-          yt-dlp -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/dl_ready.mp4" "${{ inputs.youtube_url }}"
+          # Bypassing bot detection using iOS client + cookies
+          FLAGS="--cookies final_cookies.txt --extractor-args youtube:player-client=ios,android --no-check-certificates"
+          
+          if [ "${{ inputs.format }}" == "audio" ]; then
+            yt-dlp $FLAGS -x --audio-format mp3 -o "output/dl_ready.%(ext)s" "${{ inputs.youtube_url }}"
+          else
+            yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/dl_ready.mp4" "${{ inputs.youtube_url }}"
+          fi
 
       - name: Filebin ASAP Upload
         run: |
@@ -39,14 +61,14 @@ jobs:
           BIN_ID=$(openssl rand -hex 6)
           LINK="https://filebin.net/$BIN_ID/$FILENAME"
           
-          # Perform the upload
+          # Binary Upload
           curl -X POST --data-binary @"$FILE_PATH" "$LINK"
           
-          # SEND SIGNAL TO WEBHOOK.SITE IMMEDIATELY
+          # IMMEDIATE SIGNAL TO WEBHOOK.SITE
           curl -X POST -d "$LINK" "${{ inputs.webhook_url }}"
           
           echo "SIGNAL_SUCCESS: $LINK"
 
       - name: Cleanup
         if: always()
-        run: rm -rf output
+        run: rm -rf output raw.txt final_cookies.txt
