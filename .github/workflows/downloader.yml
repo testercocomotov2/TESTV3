@@ -23,7 +23,6 @@ jobs:
       - name: Install Tools
         run: |
           brew install ffmpeg deno
-          # PEP 668 Fix for macOS
           pip3 install mediafire --break-system-packages
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
@@ -65,21 +64,22 @@ jobs:
           echo "File: **$FILENAME**" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
 
-          # 1. PixelDrain Upload (Very stable)
+          # 1. PixelDrain Upload (Fixed to handle API response better)
           echo "Uploading to PixelDrain..."
-          PD_LINK=$(curl -T "$FILE_PATH" https://pixeldrain.com/api/file/)
-          PD_URL=$(echo $PD_LINK | python3 -c "import sys, json; print('https://pixeldrain.com/u/' + json.load(sys.stdin)['id'])" || echo "Failed")
+          PD_RESPONSE=$(curl -s -T "$FILE_PATH" https://pixeldrain.com/api/file/)
+          PD_URL=$(echo "$PD_RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print('https://pixeldrain.com/u/'+data['id']) if 'id' in data else print('Failed')" || echo "Failed")
           echo "PixelDrain: $PD_URL"
-          echo "* **PixelDrain:** [$PD_URL]($PD_URL)" >> $GITHUB_STEP_SUMMARY
+          echo "* **PixelDrain:** $PD_URL" >> $GITHUB_STEP_SUMMARY
 
-          # 2. File.io Upload (Auto-deletes after download)
+          # 2. File.io Upload (Added retry/delay)
           echo "Uploading to File.io..."
-          FIO_LINK=$(curl -F "file=@$FILE_PATH" https://file.io)
-          FIO_URL=$(echo $FIO_LINK | python3 -c "import sys, json; print(json.load(sys.stdin).get('link', 'Failed'))" || echo "Failed")
+          sleep 2
+          FIO_RESPONSE=$(curl -s -F "file=@$FILE_PATH" https://file.io)
+          FIO_URL=$(echo "$FIO_RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('link', 'Failed')) if isinstance(data, dict) else print('Failed')" || echo "Failed")
           echo "File.io: $FIO_URL"
-          echo "* **File.io:** [$FIO_URL]($FIO_URL) (One-time use!)" >> $GITHUB_STEP_SUMMARY
+          echo "* **File.io:** $FIO_URL (One-time use)" >> $GITHUB_STEP_SUMMARY
 
-          # 3. MediaFire Upload (Requires Secrets)
+          # 3. MediaFire Upload (Optional Secrets)
           if [ -n "$MF_EMAIL" ] && [ -n "$MF_PASSWORD" ]; then
             echo "Uploading to MediaFire..."
             MF_STATUS=$(python3 -c "
@@ -93,11 +93,13 @@ jobs:
               with open('$FILE_PATH', 'rb') as fd:
                   uploader.upload(fd, '$FILENAME')
               print('SUCCESS')
-          except:
-              print('FAILED')
+          except Exception as e:
+              print(f'FAILED:{e}')
           ")
             if [ "$MF_STATUS" == "SUCCESS" ]; then
               echo "* **MediaFire:** [Check MyFiles](https://www.mediafire.com/myfiles/)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "MediaFire Failed: $MF_STATUS"
             fi
           fi
 
