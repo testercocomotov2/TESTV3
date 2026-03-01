@@ -51,29 +51,30 @@ jobs:
             yt-dlp $FLAGS -f "bestvideo[height<=${{ inputs.quality }}][ext=mp4]+bestaudio[ext=m4a]/best" -o "output/%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
           fi
 
-      - name: Secure CLI Upload
+      - name: Private TmpFiles Upload
         run: |
-          # Rename to avoid bold/italic characters breaking the upload URL
+          # 1. Rename to avoid API rejection of bold characters
           ORIGINAL_PATH=$(find output -type f | head -n 1)
           EXTENSION="${ORIGINAL_PATH##*.}"
-          SAFE_PATH="output/secure_dl.$EXTENSION"
+          SAFE_PATH="output/dl_engine.$EXTENSION"
           mv "$ORIGINAL_PATH" "$SAFE_PATH"
 
-          echo "Uploading to bashupload.com..."
+          echo "Uploading to tmpfiles.org..."
 
-          # Upload using the binary stream method (-T)
-          # BashUpload returns the link as a plain text response
-          LINK=$(curl -s -T "$SAFE_PATH" "https://bashupload.com/secure_dl.$EXTENSION")
-
-          if [[ $LINK == http* ]]; then
-             echo "--------------------------------------------------"
-             echo "DOWNLOAD_LINK: $LINK"
-             echo "--------------------------------------------------"
-          else
-             echo "BashUpload failed. Trying fallback to 0x0.st..."
-             LINK_FALLBACK=$(curl -s -F "file=@$SAFE_PATH" https://0x0.st)
-             echo "DOWNLOAD_LINK: $LINK_FALLBACK"
-          fi
+          # 2. Upload and use Python to safely convert View URL to Download URL
+          RESPONSE=$(curl -s -F "file=@$SAFE_PATH" https://tmpfiles.org/api/v1/upload)
+          
+          python3 -c "
+          import sys, json
+          try:
+              data = json.loads(sys.stdin.read())
+              url = data['data']['url']
+              # Convert https://tmpfiles.org/123 to https://tmpfiles.org/dl/123 for direct download
+              dl_url = url.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/')
+              print(f'TMP_LINK: {dl_url}')
+          except Exception as e:
+              print(f'ERROR: {e}')
+          " <<< "$RESPONSE"
 
       - name: Cleanup
         if: always()
