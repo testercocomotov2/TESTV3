@@ -14,19 +14,19 @@ on:
 
 jobs:
   download_and_convert:
-    runs-on: macos-latest
+    runs-runs-on: macos-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Tools
+      - name: Install Dependencies
         run: |
           brew install ffmpeg deno
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
 
-      - name: Cookie Repair
+      - name: Fix Cookies
         env:
           YT_COOKIES_SECRET: ${{ secrets.YT_COOKIES }}
         run: |
@@ -37,14 +37,17 @@ jobs:
               with open('raw.txt', 'r') as f, open('final_cookies.txt', 'w') as out:
                   out.write('# Netscape HTTP Cookie File\n')
                   for line in f:
-                      p = line.strip().split()
-                      if len(p) == 7: out.write('\t'.join(p) + '\n')
+                      parts = line.strip().split()
+                      if len(parts) == 7:
+                          out.write('\t'.join(parts) + '\n')
           "
 
-      - name: Download
+      - name: Execute Download
         run: |
           mkdir output
+          # Spoofing as mobile to reduce bot detection
           FLAGS="--cookies final_cookies.txt --extractor-args youtube:client=ios,android,tv"
+          
           if [ "${{ inputs.format }}" == "audio" ]; then
             yt-dlp $FLAGS -x --audio-format ${{ inputs.audio_ext }} -o "output/%(title)s.%(ext)s" "${{ inputs.youtube_url }}"
           else
