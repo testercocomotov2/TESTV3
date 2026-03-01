@@ -1,5 +1,5 @@
 /**
- * SGYT Engine V8 - Transfer.sh Private Edition
+ * SGYT Engine V9 - Litterbox Private Edition
  * User: SlayerGamerYT
  * Domain: sgyt.is-best.net
  */
@@ -89,14 +89,14 @@ async function trackProgress(token) {
                 document.getElementById('startBtn').disabled = false;
                 
                 if (run.conclusion === 'success') {
-                    log("SUCCESS: Cloud link generated!", "log-success");
+                    log("SUCCESS: Secure link generated!", "log-success");
                     const summaryUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/actions/runs/${run.id}`;
                     const linkBtn = document.getElementById('artifactLink');
                     linkBtn.href = summaryUrl;
                     linkBtn.textContent = "🔗 Get Private Download Link";
                     document.getElementById('downloadArea').style.display = 'block';
                 } else {
-                    log("Engine Failed. Please check logs.", "log-error");
+                    log("Engine Failed. YouTube might have blocked the runner.", "log-error");
                 }
             } else {
                 log(`Processing... Status: ${run ? run.status : 'starting'}`);
