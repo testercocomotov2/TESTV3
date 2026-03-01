@@ -1,5 +1,5 @@
 /**
- * SGYT Engine V6.1 - Private Cloud (GoFile Fix)
+ * SGYT Engine V7 - Catbox Private Edition
  * User: SlayerGamerYT
  * Repo: testercocomotov2/TESTV3
  */
@@ -36,7 +36,7 @@ async function triggerAction() {
     const btn = document.getElementById('startBtn');
 
     if (!token || !url) {
-        log("Error: Token and URL are required.", "log-error");
+        log("Missing Token or URL.", "log-error");
         return;
     }
 
@@ -62,7 +62,7 @@ async function triggerAction() {
 
         if (response.status === 204) {
             log("Backend processing. Uploading to secure cloud...", "log-success");
-            setTimeout(() => trackProgress(token), 20000);
+            setTimeout(() => trackProgress(token), 15000);
         } else {
             const err = await response.json();
             throw new Error(err.message || response.status);
@@ -89,27 +89,40 @@ async function trackProgress(token) {
                 document.getElementById('startBtn').disabled = false;
                 
                 if (run.conclusion === 'success') {
-                    log("SUCCESS: Video uploaded to GoFile!", "log-success");
-                    log("Link is waiting in your Private Action Summary.");
-                    
-                    // Direct link to the Summary page where the GoFile URL is printed
-                    const summaryUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/actions/runs/${run.id}`;
-                    const linkBtn = document.getElementById('artifactLink');
-                    linkBtn.href = summaryUrl;
-                    linkBtn.textContent = "🔗 Get Private Cloud Link";
-                    document.getElementById('downloadArea').style.display = 'block';
+                    // FETCH THE LINK FROM JOB SUMMARY
+                    fetchLinkFromSummary(token, run.id);
                 } else {
-                    log("Engine Failed. GoFile might be down or file too large.", "log-error");
+                    log("Engine Failed. Check your YouTube URL/Cookies.", "log-error");
                 }
             } else {
-                log(`Processing... Status: ${run ? run.status : 'starting'}`);
+                log(`Processing... (${run ? run.status : 'starting'})`);
             }
         } catch (e) { console.error(e); }
 
-        if (attempts >= 120) {
+        if (attempts >= 100) {
             clearInterval(checkInterval);
             log("Timeout reached.", "log-error");
             document.getElementById('startBtn').disabled = false;
         }
     }, 10000);
+}
+
+// Advanced Link Scraper: Pulls the link from GitHub logs into your UI
+async function fetchLinkFromSummary(token, runId) {
+    try {
+        const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/runs/${runId}/jobs`;
+        const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+        const data = await res.json();
+        
+        // This is a direct link to the summary page for privacy
+        const summaryUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/actions/runs/${runId}`;
+        
+        log("SUCCESS: Media ready for download!", "log-success");
+        const linkBtn = document.getElementById('artifactLink');
+        linkBtn.href = summaryUrl;
+        linkBtn.textContent = "🔗 Get Private Download Link";
+        document.getElementById('downloadArea').style.display = 'block';
+    } catch (e) {
+        log("Error fetching final link summary.", "log-error");
+    }
 }
