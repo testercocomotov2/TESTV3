@@ -1,5 +1,5 @@
 /**
- * SGYT Engine V6 - Private Cloud Edition
+ * SGYT Engine V6.1 - Private Cloud (GoFile Fix)
  * User: SlayerGamerYT
  * Repo: testercocomotov2/TESTV3
  */
@@ -89,24 +89,24 @@ async function trackProgress(token) {
                 document.getElementById('startBtn').disabled = false;
                 
                 if (run.conclusion === 'success') {
-                    // We will fetch the GoFile link from the logs/summary in a moment
                     log("SUCCESS: Video uploaded to GoFile!", "log-success");
-                    log("Check your GitHub Action Summary for the GoFile link.");
-                    // For now, redirecting you to the summary page where the link is printed
+                    log("Link is waiting in your Private Action Summary.");
+                    
+                    // Direct link to the Summary page where the GoFile URL is printed
                     const summaryUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/actions/runs/${run.id}`;
                     const linkBtn = document.getElementById('artifactLink');
                     linkBtn.href = summaryUrl;
                     linkBtn.textContent = "🔗 Get Private Cloud Link";
                     document.getElementById('downloadArea').style.display = 'block';
                 } else {
-                    log("Engine Failed. Check GitHub Logs.", "log-error");
+                    log("Engine Failed. GoFile might be down or file too large.", "log-error");
                 }
             } else {
-                log(`Processing... (${run ? run.status : 'starting'})`);
+                log(`Processing... Status: ${run ? run.status : 'starting'}`);
             }
         } catch (e) { console.error(e); }
 
-        if (attempts >= 100) {
+        if (attempts >= 120) {
             clearInterval(checkInterval);
             log("Timeout reached.", "log-error");
             document.getElementById('startBtn').disabled = false;
